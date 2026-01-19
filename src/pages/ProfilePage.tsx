@@ -16,7 +16,7 @@ import {
 import {quotaService} from '@/services/quotaService'
 import {authService} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
-import {Bot, Check, Eye, EyeOff, Plus, Server, Sparkles, Trash2, User} from 'lucide-react'
+import {Bot, Check, Copy, Eye, EyeOff, Plus, Server, Sparkles, Trash2, User} from 'lucide-react'
 import {useAuthStore} from '@/stores/authStore'
 import {useSystemStore} from '@/stores/systemStore'
 import {useStorageModeStore} from '@/stores/storageModeStore'
@@ -678,6 +678,8 @@ export function ProfilePage() {
   const [quotaTotal, setQuotaTotal] = useState(10)
   const { success, error: showError } = useToast()
   const user = useAuthStore((state) => state.user)
+  const token = useAuthStore((state) => state.token)
+  const [showToken, setShowToken] = useState(false)
   const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false)
   const [configUpdateTrigger, setConfigUpdateTrigger] = useState(0)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -730,7 +732,7 @@ export function ProfilePage() {
               {/* 左侧 Tab */}
               <div className="w-64 border-r border-border bg-surface/50 p-4 overflow-y-auto">
                 <nav className="space-y-1">
-                  {storageMode !== 'local' && (
+                  {(storageMode !== 'local' || user) && (
                     <button
                       onClick={() => setActiveTab('profile')}
                       className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
@@ -780,6 +782,41 @@ export function ProfilePage() {
                             保存
                           </Button>
                         </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted">API Token</label>
+                        <div className="mt-1 flex items-center gap-2">
+                          <div className="relative flex-1 max-w-md">
+                            <Input
+                              type={showToken ? 'text' : 'password'}
+                              value={token || ''}
+                              readOnly
+                              className="pr-10 font-mono text-sm"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowToken(!showToken)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                            >
+                              {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              if (token) {
+                                navigator.clipboard.writeText(token)
+                                success('Token 已复制')
+                              }
+                            }}
+                          >
+                            <Copy className="h-4 w-4 mr-2" />
+                            复制
+                          </Button>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          用于浏览器插件或其他 API 调用。请勿泄露给他人。
+                        </p>
                       </div>
                       <div>
                         <Button onClick={() => setIsChangePasswordDialogOpen(true)}>

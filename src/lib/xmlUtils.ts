@@ -271,8 +271,8 @@ export function replaceNodes(currentXML: string, nodes: string): string {
         return serializer.serializeToString(currentDoc)
     } catch (error) {
         console.error("Error replacing nodes:", error)
-        // Fallback: return nodes as is if replacement fails
-        return nodes
+        // Fallback: return currentXML to maintain valid state
+        return currentXML
     }
 }
 

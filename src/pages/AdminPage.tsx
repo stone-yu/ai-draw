@@ -1,18 +1,18 @@
 import {useEffect, useState} from 'react'
 import {AppSidebar, CreateProjectDialog} from '@/components/layout'
 import {
-    Button,
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    Input,
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui'
 import {authService, type ExampleProject} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
@@ -659,8 +659,11 @@ function AdminAccessPasswordDialog({ open, onOpenChange, user, onSave }: AdminAc
 
 function NotificationSettings() {
   const [homepageNotification, setHomepageNotification] = useState('')
+  const [homepageEnabled, setHomepageEnabled] = useState(true)
   const [homepageAnnouncement, setHomepageAnnouncement] = useState('')
+  const [homepageAnnouncementEnabled, setHomepageAnnouncementEnabled] = useState(true)
   const [editorNotification, setEditorNotification] = useState('')
+  const [editorEnabled, setEditorEnabled] = useState(true)
   const [loading, setLoading] = useState(false)
   const { success, error: showError } = useToast()
   const setNotifications = useSystemStore((state) => state.setNotifications)
@@ -675,8 +678,11 @@ function NotificationSettings() {
       const settings = await authService.getSystemSettings()
       if (settings.system?.notifications) {
         setHomepageNotification(settings.system.notifications.homepage || '')
+        setHomepageEnabled(settings.system.notifications.homepageEnabled !== false)
         setHomepageAnnouncement(settings.system.notifications.homepageAnnouncement || '')
+        setHomepageAnnouncementEnabled(settings.system.notifications.homepageAnnouncementEnabled !== false)
         setEditorNotification(settings.system.notifications.editor || '')
+        setEditorEnabled(settings.system.notifications.editorEnabled !== false)
       }
       if (settings.system) {
         setSystemSettings(settings.system)
@@ -697,16 +703,22 @@ function NotificationSettings() {
           ...currentSettings.system,
           notifications: {
             homepage: homepageNotification,
+            homepageEnabled,
             homepageAnnouncement: homepageAnnouncement,
-            editor: editorNotification
+            homepageAnnouncementEnabled,
+            editor: editorNotification,
+            editorEnabled
           }
         }
       })
 
       setNotifications({
         homepage: homepageNotification,
+        homepageEnabled,
         homepageAnnouncement: homepageAnnouncement,
-        editor: editorNotification
+        homepageAnnouncementEnabled,
+        editor: editorNotification,
+        editorEnabled
       })
       success('通知配置已保存')
     } catch (err) {
@@ -719,7 +731,21 @@ function NotificationSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <label className="mb-2 block text-sm font-medium text-muted">首页顶部滚动通知</label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-muted">首页顶部滚动通知</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="homepageEnabled"
+              checked={homepageEnabled}
+              onChange={(e) => setHomepageEnabled(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <label htmlFor="homepageEnabled" className="text-sm font-medium text-muted cursor-pointer">
+              启用
+            </label>
+          </div>
+        </div>
         <textarea
           value={homepageNotification}
           onChange={(e) => setHomepageNotification(e.target.value)}
@@ -732,7 +758,21 @@ function NotificationSettings() {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-muted">首页右侧公告框</label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-muted">首页右侧公告框</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="homepageAnnouncementEnabled"
+              checked={homepageAnnouncementEnabled}
+              onChange={(e) => setHomepageAnnouncementEnabled(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <label htmlFor="homepageAnnouncementEnabled" className="text-sm font-medium text-muted cursor-pointer">
+              启用
+            </label>
+          </div>
+        </div>
         <textarea
           value={homepageAnnouncement}
           onChange={(e) => setHomepageAnnouncement(e.target.value)}
@@ -745,7 +785,21 @@ function NotificationSettings() {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-muted">编辑器通知</label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-muted">编辑器通知</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="editorEnabled"
+              checked={editorEnabled}
+              onChange={(e) => setEditorEnabled(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <label htmlFor="editorEnabled" className="text-sm font-medium text-muted cursor-pointer">
+              启用
+            </label>
+          </div>
+        </div>
         <textarea
           value={editorNotification}
           onChange={(e) => setEditorNotification(e.target.value)}
@@ -1268,7 +1322,7 @@ function LLMSettings() {
       </div>
 
       <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
-        <p>配置全局 LLM API 后，所有用户使用默认服务器都使用此配置，每日有10次限额。</p>
+        <p>配置全局 LLM API 后，所有用户使用默认服务器都使用此配置</p>
       </div>
 
       <div className="flex gap-3 pt-4">

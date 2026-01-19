@@ -18,12 +18,13 @@ const CHANGELOG_DATA: ChangelogItem[] = [
 - 支持本地存储模式，保护隐私，无需登录即可使用。
 #### 🛠 优化能力
 - 修复本地和云端切换导致的用户登录状态变化问题。
+- 优化云端模式文件和配置存储方式，将json文件改为数据库模式，兼容升级过程中的数据迁移。
     `
   },
   {
     version: 'v1.6.0',
     date: '2026-01-14',
-    isLatest: true,
+    isLatest: false,
     content: `
 #### ✨ 新增能力
 - 支持动态绘图，ai对话过程中，动态生成图表，进度可见。
@@ -32,7 +33,7 @@ const CHANGELOG_DATA: ChangelogItem[] = [
   {
     version: 'v1.2.0',
     date: '2025-12-30',
-    isLatest: true,
+    isLatest: false,
     content: `
 #### ✨ 新增能力
 - 增加用户注册登录功能，支持多用户管理。
@@ -42,7 +43,7 @@ const CHANGELOG_DATA: ChangelogItem[] = [
   {
     version: 'v1.1.0',
     date: '2025-12-30',
-    isLatest: true,
+    isLatest: false,
     content: `
 #### ✨ 新增能力
 - 文件管理支持分组设置。

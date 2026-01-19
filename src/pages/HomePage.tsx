@@ -49,6 +49,14 @@ export function HomePage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
   const [previewProject, setPreviewProject] = useState<Project | null>(null)
+  const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(true)
+
+  useEffect(() => {
+    // 小屏幕默认收起公告，避免遮挡
+    if (window.innerWidth < 1280) {
+      setIsAnnouncementOpen(false)
+    }
+  }, [])
 
   useEffect(() => {
     loadRecentProjects()
@@ -59,8 +67,11 @@ export function HomePage() {
         if (settings.system?.notifications) {
           useSystemStore.getState().setNotifications({
             homepage: settings.system.notifications.homepage,
+            homepageEnabled: settings.system.notifications.homepageEnabled,
             editor: settings.system.notifications.editor,
+            editorEnabled: settings.system.notifications.editorEnabled,
             homepageAnnouncement: settings.system.notifications.homepageAnnouncement,
+            homepageAnnouncementEnabled: settings.system.notifications.homepageAnnouncementEnabled,
           })
         }
       } catch (error) {
@@ -81,7 +92,7 @@ export function HomePage() {
 
   const loadRecentProjects = async () => {
     try {
-      let projects = await ProjectRepository.getAll()
+      const { items: projects } = await ProjectRepository.getAll(1, 4)
 
       // 如果是本地模式且没有项目，尝试加载示例项目
       if (storageMode === 'local' && projects.length === 0) {
@@ -115,14 +126,16 @@ export function HomePage() {
               }
             })
             // 重新加载项目
-            projects = await ProjectRepository.getAll()
+            const { items: newProjects } = await ProjectRepository.getAll(1, 4)
+            setRecentProjects(newProjects)
+            return
           }
         } catch (err) {
           console.error('Failed to load example projects:', err)
         }
       }
 
-      setRecentProjects(projects.slice(0, 4))
+      setRecentProjects(projects)
     } catch (error) {
       console.error('Failed to load projects:', error)
     }
@@ -321,17 +334,29 @@ export function HomePage() {
         <AppHeader />
 
         {/* Homepage Announcement Box */}
-        {notifications.homepageAnnouncement && (
+        {notifications.homepageAnnouncement && notifications.homepageAnnouncementEnabled !== false && (
           <div className="absolute right-8 top-24 flex items-start gap-3 z-20 animate-in fade-in slide-in-from-top-4 duration-500">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-green-100 to-blue-100 shadow-sm border border-blue-50">
+            <button
+              onClick={() => setIsAnnouncementOpen(!isAnnouncementOpen)}
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-green-100 to-blue-100 shadow-sm border border-blue-50 hover:shadow-md transition-all hover:scale-105 active:scale-95"
+              title={isAnnouncementOpen ? "收起公告" : "展开公告"}
+            >
               <Bot className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="relative max-w-xs rounded-2xl rounded-tl-none bg-gradient-to-r from-green-50 to-blue-50 p-4 shadow-md border border-blue-100/50">
-              <div
-                className="text-sm text-slate-700 [&_a]:underline [&_a]:text-blue-600 hover:[&_a]:text-blue-700 [&_a]:cursor-pointer [&_strong]:font-semibold [&_strong]:text-slate-900"
-                dangerouslySetInnerHTML={{ __html: notifications.homepageAnnouncement }}
-              />
-            </div>
+            </button>
+            {isAnnouncementOpen && (
+              <div className="relative max-w-xs rounded-2xl rounded-tl-none bg-gradient-to-r from-green-50 to-blue-50 p-4 shadow-md border border-blue-100/50 animate-in fade-in slide-in-from-left-2 duration-300">
+                <button
+                  onClick={() => setIsAnnouncementOpen(false)}
+                  className="absolute right-2 top-2 p-1 text-slate-400 hover:text-slate-600 hover:bg-blue-100/50 rounded-full transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+                <div
+                  className="text-sm text-slate-700 [&_a]:underline [&_a]:text-blue-600 hover:[&_a]:text-blue-700 [&_a]:cursor-pointer [&_strong]:font-semibold [&_strong]:text-slate-900 pr-4"
+                  dangerouslySetInnerHTML={{ __html: notifications.homepageAnnouncement }}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -658,11 +683,11 @@ export function HomePage() {
                 <div className="grid grid-cols-2 gap-4">
                 {/* Recent Projects */}
                 {recentProjects.slice(0, 4).map((project) => (
-                  <button
+                  <div
                     key={project.id}
                     onClick={() => setPreviewProject(project)}
                     onDoubleClick={() => navigate(`/editor/${project.id}`)}
-                    className="group relative flex flex-col overflow-hidden rounded-2xl bg-background/80 transition-all duration-300 hover:-translate-y-1 hover:bg-surface hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-transparent hover:border-border/50"
+                    className="group relative flex flex-col overflow-hidden rounded-2xl bg-background/80 transition-all duration-300 hover:-translate-y-1 hover:bg-surface hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-transparent hover:border-border/50 cursor-pointer"
                   >
                     <div className="absolute left-2 top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100">
                       <Button
@@ -714,11 +739,11 @@ export function HomePage() {
                           {project.engineType.toUpperCase()}
                         </span>
                         <p className="text-[10px] text-muted-foreground/60 ml-auto">
-                          创建于 {formatDate(project.createdAt)}
+                          {formatDate(project.createdAt)}
                         </p>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 ))}
                 </div>
               </div>
@@ -753,11 +778,13 @@ export function HomePage() {
                 )}
               </div>
               <div className="bg-white p-6 flex items-center justify-between border-t border-border">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-xl font-semibold text-primary">{previewProject?.title}</h2>
-                  <p className="text-sm text-muted-foreground">
-                    更新于 {previewProject && formatDate(previewProject.updatedAt)}
-                  </p>
+                <div className="flex flex-col gap-2 flex-1 mr-4">
+                  <h2 className="text-xl font-semibold text-primary truncate" title={previewProject?.title}>{previewProject?.title}</h2>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span>创建时间：{previewProject && formatDate(previewProject.createdAt, true)}</span>
+                    <span className="w-px h-3 bg-border"></span>
+                    <span>更新时间：{previewProject && formatDate(previewProject.updatedAt, true)}</span>
+                  </div>
                 </div>
                 <Button
                   onClick={() => {
@@ -765,7 +792,7 @@ export function HomePage() {
                       navigate(`/editor/${previewProject.id}`)
                     }
                   }}
-                  className="rounded-full px-6"
+                  className="rounded-full px-8 h-12 text-base shrink-0"
                 >
                   进入编辑
                 </Button>

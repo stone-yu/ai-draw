@@ -1,6 +1,17 @@
-import {useEffect, useMemo, useState} from 'react'
+import {useEffect, useState} from 'react'
 import {useLocation, useNavigate} from 'react-router-dom'
-import {Edit, Folder, FolderOpen, MoreVertical, Plus, Search, Sparkles, Upload} from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Edit,
+  Folder,
+  FolderOpen,
+  MoreVertical,
+  Plus,
+  Search,
+  Sparkles,
+  Upload
+} from 'lucide-react'
 import {
   Button,
   Dialog,
@@ -31,6 +42,9 @@ export function ProjectsPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null) // null = All, 'uncategorized' = Uncategorized
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize] = useState(20)
+  const [total, setTotal] = useState(0)
 
   // Create dialog state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -69,7 +83,7 @@ export function ProjectsPage() {
   // Load data
   useEffect(() => {
     loadData()
-  }, [])
+  }, [page, selectedGroupId, searchQuery])
 
   // Open create dialog if navigated with state
   useEffect(() => {
@@ -83,9 +97,10 @@ export function ProjectsPage() {
   const loadData = async () => {
     setIsLoading(true)
     try {
-      const projectsData = await ProjectRepository.getAll()
+      const { items, total } = await ProjectRepository.getAll(page, pageSize, searchQuery, selectedGroupId)
       const groupsData = await GroupRepository.getAll()
-      setProjects(projectsData)
+      setProjects(items)
+      setTotal(total)
       setGroups(groupsData)
     } catch (error) {
       console.error('Failed to load data:', error)
@@ -94,26 +109,7 @@ export function ProjectsPage() {
     }
   }
 
-  const filteredProjects = useMemo(() => {
-    let filtered = projects
-
-    // Filter by group
-    if (selectedGroupId === 'uncategorized') {
-      filtered = filtered.filter(p => !p.groupId)
-    } else if (selectedGroupId) {
-      filtered = filtered.filter(p => p.groupId === selectedGroupId)
-    }
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter((project) =>
-        project.title.toLowerCase().includes(query)
-      )
-    }
-
-    return filtered
-  }, [projects, searchQuery, selectedGroupId])
+  // Removed filteredProjects useMemo as filtering is now server-side
 
   // --- Project Actions ---
 
@@ -255,7 +251,10 @@ export function ProjectsPage() {
               <Input
                 placeholder="搜索文件..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setPage(1)
+                }}
                 className="h-9 rounded-lg border-border bg-background pl-9 pr-4 text-sm focus:border-primary"
               />
             </div>
@@ -264,7 +263,10 @@ export function ProjectsPage() {
           {/* Groups List */}
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             <button
-              onClick={() => setSelectedGroupId(null)}
+              onClick={() => {
+                setSelectedGroupId(null)
+                setPage(1)
+              }}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
                 selectedGroupId === null
                   ? 'bg-primary/10 text-primary font-medium'
@@ -273,11 +275,14 @@ export function ProjectsPage() {
             >
               <Folder className="h-4 w-4" />
               全部文件
-              <span className="ml-auto text-xs opacity-60">{projects.length}</span>
+              <span className="ml-auto text-xs opacity-60">{total}</span>
             </button>
 
             <button
-              onClick={() => setSelectedGroupId('uncategorized')}
+              onClick={() => {
+                setSelectedGroupId('uncategorized')
+                setPage(1)
+              }}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
                 selectedGroupId === 'uncategorized'
                   ? 'bg-primary/10 text-primary font-medium'
@@ -287,14 +292,17 @@ export function ProjectsPage() {
               <FolderOpen className="h-4 w-4" />
               未分组
               <span className="ml-auto text-xs opacity-60">
-                {projects.filter(p => !p.groupId).length}
+                {/* Count is not available for uncategorized without fetching */}
               </span>
             </button>
 
             {groups.map(group => (
               <div key={group.id} className="group/item relative">
                 <button
-                  onClick={() => setSelectedGroupId(group.id)}
+                  onClick={() => {
+                    setSelectedGroupId(group.id)
+                    setPage(1)
+                  }}
                   className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
                     selectedGroupId === group.id
                       ? 'bg-primary/10 text-primary font-medium'
@@ -304,7 +312,7 @@ export function ProjectsPage() {
                   <Folder className="h-4 w-4" />
                   <span className="truncate">{group.name}</span>
                   <span className="ml-auto text-xs opacity-60">
-                    {projects.filter(p => p.groupId === group.id).length}
+                    {/* Count is not available for groups without fetching */}
                   </span>
                 </button>
 
@@ -373,7 +381,7 @@ export function ProjectsPage() {
               <div className="flex h-full items-center justify-center">
                 <Loading size="lg" />
               </div>
-            ) : filteredProjects.length === 0 ? (
+            ) : projects.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center">
                 <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface p-12">
                   <Sparkles className="mb-4 h-12 w-12 text-muted" />
@@ -405,7 +413,7 @@ export function ProjectsPage() {
                 )}
 
                 {/* Project Cards */}
-                {filteredProjects.map((project) => (
+                {projects.map((project) => (
                   <div
                     key={project.id}
                     className="group relative cursor-pointer overflow-hidden rounded-2xl bg-background/80 transition-all duration-300 hover:-translate-y-1 hover:bg-surface hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-transparent hover:border-border/50"
@@ -507,6 +515,33 @@ export function ProjectsPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {total > pageSize && (
+              <div className="flex items-center justify-center gap-2 py-4 border-t border-border mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  第 {page} 页 / 共 {Math.ceil(total / pageSize)} 页
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(Math.ceil(total / pageSize), p + 1))}
+                  disabled={page >= Math.ceil(total / pageSize)}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             )}
           </div>
@@ -755,11 +790,13 @@ export function ProjectsPage() {
                 )}
               </div>
               <div className="bg-white p-6 flex items-center justify-between border-t border-border">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-xl font-semibold text-primary">{previewProject?.title}</h2>
-                  <p className="text-sm text-muted-foreground">
-                    更新于 {previewProject && formatDate(previewProject.updatedAt)}
-                  </p>
+                <div className="flex flex-col gap-2 flex-1 mr-4">
+                  <h2 className="text-xl font-semibold text-primary truncate" title={previewProject?.title}>{previewProject?.title}</h2>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span>创建时间：{previewProject && formatDate(previewProject.createdAt, true)}</span>
+                    <span className="w-px h-3 bg-border"></span>
+                    <span>更新时间：{previewProject && formatDate(previewProject.updatedAt, true)}</span>
+                  </div>
                 </div>
                 <Button
                   onClick={() => {
@@ -767,7 +804,7 @@ export function ProjectsPage() {
                       navigate(`/editor/${previewProject.id}`)
                     }
                   }}
-                  className="rounded-full px-6"
+                  className="rounded-full px-8 h-12 text-base shrink-0"
                 >
                   进入编辑
                 </Button>

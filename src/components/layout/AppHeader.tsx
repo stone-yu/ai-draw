@@ -35,8 +35,11 @@ export function AppHeader() {
         if (settings.system?.notifications) {
           setNotifications({
             homepage: settings.system.notifications.homepage,
+            homepageEnabled: settings.system.notifications.homepageEnabled,
             editor: settings.system.notifications.editor,
+            editorEnabled: settings.system.notifications.editorEnabled,
             homepageAnnouncement: settings.system.notifications.homepageAnnouncement,
+            homepageAnnouncementEnabled: settings.system.notifications.homepageAnnouncementEnabled,
           })
         }
       } catch (error) {
@@ -87,7 +90,7 @@ export function AppHeader() {
 
         <div className="flex items-center gap-6 ml-2">
           <Link to="/docs/manual" className="text-sm font-medium text-slate-700 hover:text-primary transition-colors">使用手册</Link>
-          {/*<Link to="/docs/changelog" className="text-sm font-medium text-slate-700 hover:text-primary transition-colors">更新日志</Link>*/}
+          <Link to="/docs/changelog" className="text-sm font-medium text-slate-700 hover:text-primary transition-colors">更新日志</Link>
           <Link to="/docs/feedback" className="text-sm font-medium text-slate-700 hover:text-primary transition-colors">问题反馈</Link>
         </div>
       </div>
@@ -96,7 +99,7 @@ export function AppHeader() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-4">
-        {notifications.homepage && (
+        {notifications.homepage && notifications.homepageEnabled !== false && (
           <div className="relative flex items-center overflow-hidden rounded-full bg-gradient-to-r from-green-50 to-blue-50 px-3 py-1 border border-blue-100/50 shadow-sm max-w-[400px]">
             <Megaphone className="mr-2 h-4 w-4 text-green-600 flex-shrink-0" />
             <div className="w-[200px] h-6 relative overflow-hidden">

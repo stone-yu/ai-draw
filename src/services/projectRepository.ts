@@ -79,27 +79,60 @@ export const ProjectRepository = {
   },
 
   /**
-   * Get all projects, sorted by updatedAt descending
+   * Get projects with pagination and search
    */
-  async getAll(): Promise<Project[]> {
+  async getAll(
+    page: number = 1,
+    pageSize: number = 20,
+    search: string = '',
+    groupId?: string | null
+  ): Promise<{ items: Project[], total: number }> {
     const mode = useStorageModeStore.getState().mode
 
     if (mode === 'local') {
-      const projects = await db.projects.orderBy('updatedAt').reverse().toArray()
-      return projects
+      let collection = db.projects.orderBy('updatedAt').reverse()
+
+      if (search) {
+        const lowerSearch = search.toLowerCase()
+        collection = collection.filter(p => p.title.toLowerCase().includes(lowerSearch))
+      }
+
+      if (groupId === 'uncategorized') {
+        collection = collection.filter(p => !p.groupId)
+      } else if (groupId) {
+        collection = collection.filter(p => p.groupId === groupId)
+      }
+
+      const total = await collection.count()
+      const items = await collection
+        .offset((page - 1) * pageSize)
+        .limit(pageSize)
+        .toArray()
+
+      return { items, total }
     }
 
-    const response = await fetch(`${API_BASE}/projects`, {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      pageSize: pageSize.toString(),
+      search
+    })
+    if (groupId) params.append('groupId', groupId)
+
+    const response = await fetch(`${API_BASE}/projects?${params}`, {
       headers: authService.getAuthHeader()
     })
     if (!response.ok) throw new Error('Failed to get projects')
 
-    const projects = await response.json()
-    return projects.map((p: any) => ({
-      ...p,
-      createdAt: new Date(p.createdAt),
-      updatedAt: new Date(p.updatedAt),
-    }))
+    const data = await response.json()
+    return {
+      items: data.items.map((p: any) => ({
+        ...p,
+        createdAt: new Date(p.createdAt),
+        updatedAt: new Date(p.updatedAt),
+      })),
+      total: data.total
+    }
   },
 
   /**
@@ -160,11 +193,7 @@ export const ProjectRepository = {
    * Search projects by title keyword
    */
   async search(keyword: string): Promise<Project[]> {
-    // Fetch all and filter client-side for simplicity
-    const projects = await this.getAll()
-    const lowerKeyword = keyword.toLowerCase()
-    return projects.filter((project) =>
-      project.title.toLowerCase().includes(lowerKeyword)
-    )
+    const result = await this.getAll(1, 100, keyword)
+    return result.items
   },
 }

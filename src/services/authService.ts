@@ -20,8 +20,11 @@ export interface SystemSettings {
     defaultModelPrompt?: string
     notifications?: {
       homepage?: string
+      homepageEnabled?: boolean
       homepageAnnouncement?: string
+      homepageAnnouncementEnabled?: boolean
       editor?: string
+      editorEnabled?: boolean
     }
   }
 }

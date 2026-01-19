@@ -12,7 +12,7 @@ export function DocLayout({ children, title }: DocLayoutProps) {
 
   const menuItems = [
     { icon: Book, label: '使用手册', path: '/docs/manual' },
-    // { icon: History, label: '更新日志', path: '/docs/changelog' },
+    { icon: History, label: '更新日志', path: '/docs/changelog' },
     { icon: MessageSquare, label: '问题反馈', path: '/docs/feedback' },
   ]
 

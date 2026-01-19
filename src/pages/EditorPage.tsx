@@ -340,7 +340,7 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
 
         {/* Notification Bar */}
         <div className="flex-1 mx-4 min-w-0 max-w-2xl flex justify-center">
-          {notifications.editor && (
+          {notifications.editor && notifications.editorEnabled !== false && (
             <div className="relative flex items-center overflow-hidden rounded-full bg-gradient-to-r from-green-50 to-blue-50 px-3 py-1 border border-blue-100/50 shadow-sm max-w-[400px]">
               <Megaphone className="mr-2 h-4 w-4 text-green-600 flex-shrink-0" />
               <div className="w-[200px] h-6 relative overflow-hidden">
