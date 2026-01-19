@@ -36,7 +36,7 @@ RUN npm install -g pnpm && pnpm config set registry https://registry.npmmirror.c
 COPY package.json pnpm-lock.yaml ./
 
 # Install production dependencies only (including express for server)
-RUN pnpm install --prod --registry=https://registry.npmmirror.com/
+RUN pnpm install --prod --registry=https://registry.npmmirror.com/ && pnpm rebuild sqlite3
 
 # Copy built frontend assets
 COPY --from=builder /app/dist ./dist
