@@ -4,7 +4,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Install system dependencies
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat python3 make g++
 
 # Install pnpm
 RUN npm install -g pnpm && pnpm config set registry https://registry.npmmirror.com/
@@ -27,7 +27,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install system dependencies
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat python3 make g++
 
 # Install pnpm
 RUN npm install -g pnpm && pnpm config set registry https://registry.npmmirror.com/

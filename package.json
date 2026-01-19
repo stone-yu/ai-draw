@@ -43,6 +43,8 @@
     "react-dom": "^19.2.0",
     "react-drawio": "^1.0.7",
     "react-router-dom": "^7.11.0",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
     "tailwind-merge": "^3.4.0",
     "turndown": "^7.2.2",
     "uuid": "^13.0.0",
