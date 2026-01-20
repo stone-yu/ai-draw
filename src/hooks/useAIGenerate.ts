@@ -1,8 +1,11 @@
 import {useChatStore} from '@/stores/chatStore'
 import {useEditorStore} from '@/stores/editorStore'
 import {usePayloadStore} from '@/stores/payloadStore'
+import {useStorageModeStore} from '@/stores/storageModeStore'
+import {useAuthStore} from '@/stores/authStore'
 import {VersionRepository} from '@/services/versionRepository'
 import {ProjectRepository} from '@/services/projectRepository'
+import {authService} from '@/services/authService'
 import {buildEditPrompt, buildInitialPrompt, extractCode, SYSTEM_PROMPTS,} from '@/lib/promptBuilder'
 import {generateThumbnail} from '@/lib/thumbnail'
 import {aiService} from '@/services/aiService'
@@ -357,6 +360,41 @@ export function useAIGenerate() {
       await ProjectRepository.update(currentProject.id, {})
       success('Diagram generated successfully')
 
+      // Log AI chat
+      const mode = useStorageModeStore.getState().mode
+      const payloadMessages = usePayloadStore.getState().messages
+      if (mode === 'local') {
+        const localUserId = useStorageModeStore.getState().localUserId
+        authService.logAIChat({
+          userId: localUserId,
+          userType: 'local',
+          modelName: aiService.getCurrentModel?.() || 'unknown',
+          details: {
+            userInput,
+            isInitial,
+            engineType,
+            duration: ((metrics.endTime || Date.now()) - metrics.startTime) / 1000,
+            messages: payloadMessages
+          }
+        })
+      } else {
+        const user = useAuthStore.getState().user
+        if (user) {
+          authService.logAIChat({
+            userId: user.id,
+            userType: 'cloud',
+            modelName: aiService.getCurrentModel?.() || 'unknown',
+            details: {
+              userInput,
+              isInitial,
+              engineType,
+              duration: ((metrics.endTime || Date.now()) - metrics.startTime) / 1000,
+              messages: payloadMessages
+            }
+          })
+        }
+      }
+
     } catch (error) {
       console.error('AI generation failed:', error)
       updateMessage(assistantMsgId, {
@@ -562,6 +600,39 @@ export function useAIGenerate() {
 
       await ProjectRepository.update(currentProject.id, {})
       success('Diagram generated successfully')
+
+      // Log AI chat for retry
+      const mode = useStorageModeStore.getState().mode
+      const payloadMessages = usePayloadStore.getState().messages
+      if (mode === 'local') {
+        const localUserId = useStorageModeStore.getState().localUserId
+        authService.logAIChat({
+          userId: localUserId,
+          userType: 'local',
+          modelName: aiService.getCurrentModel?.() || 'unknown',
+          details: {
+            isRetry: true,
+            engineType,
+            duration: ((metrics.endTime || Date.now()) - metrics.startTime) / 1000,
+            messages: payloadMessages
+          }
+        })
+      } else {
+        const user = useAuthStore.getState().user
+        if (user) {
+          authService.logAIChat({
+            userId: user.id,
+            userType: 'cloud',
+            modelName: aiService.getCurrentModel?.() || 'unknown',
+            details: {
+              isRetry: true,
+              engineType,
+              duration: ((metrics.endTime || Date.now()) - metrics.startTime) / 1000,
+              messages: payloadMessages
+            }
+          })
+        }
+      }
 
     } catch (error) {
       console.error('AI retry failed:', error)

@@ -281,6 +281,53 @@ app.get('/api/public/example-projects', async (req, res) => {
   }
 });
 
+// --- Local User & Logs Routes ---
+app.post('/api/local-users/register', async (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'User ID is required' });
+
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const now = new Date().toISOString();
+  const db = getDB();
+
+  const existing = await db.get('SELECT id FROM local_users WHERE id = ?', id);
+  if (existing) {
+    await db.run('UPDATE local_users SET last_seen_at = ?, ip_address = ? WHERE id = ?', now, ip, id);
+  } else {
+    await db.run(
+      'INSERT INTO local_users (id, ip_address, first_seen_at, last_seen_at) VALUES (?, ?, ?, ?)',
+      id, ip, now, now
+    );
+  }
+  res.json({ success: true });
+});
+
+app.post('/api/logs/chat', async (req, res) => {
+  const { userId, userType, modelName, details } = req.body;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const now = new Date().toISOString();
+  const id = uuidv4();
+
+  await getDB().run(
+    'INSERT INTO ai_chat_logs (id, user_id, user_type, model_name, ip_address, timestamp, details) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    id, userId, userType, modelName, ip, now, JSON.stringify(details || {})
+  );
+  res.json({ success: true });
+});
+
+app.post('/api/logs/file', async (req, res) => {
+  const { userId, userType, fileId, fileTitle } = req.body;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const now = new Date().toISOString();
+  const id = uuidv4();
+
+  await getDB().run(
+    'INSERT INTO file_creation_logs (id, user_id, user_type, file_id, file_title, ip_address, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    id, userId, userType, fileId, fileTitle, ip, now
+  );
+  res.json({ success: true });
+});
+
 // --- Admin Routes ---
 app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
   const rows = await getDB().all('SELECT * FROM users');
@@ -289,6 +336,78 @@ app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
     return { ...u, role: u.role || 'user', hasAccessPassword: !!accessPassword };
   });
   res.json(safeUsers);
+});
+
+app.get('/api/admin/local-users', authenticateToken, isAdmin, async (req, res) => {
+  const rows = await getDB().all('SELECT * FROM local_users ORDER BY last_seen_at DESC');
+  res.json(rows.map(u => ({
+    id: u.id,
+    ipAddress: u.ip_address,
+    firstSeenAt: u.first_seen_at,
+    lastSeenAt: u.last_seen_at
+  })));
+});
+
+app.get('/api/admin/logs/chat', authenticateToken, isAdmin, async (req, res) => {
+  const { userId, startDate, endDate } = req.query;
+  let query = 'SELECT * FROM ai_chat_logs WHERE 1=1';
+  const params = [];
+
+  if (userId) {
+    query += ' AND user_id = ?';
+    params.push(userId);
+  }
+  if (startDate) {
+    query += ' AND timestamp >= ?';
+    params.push(startDate);
+  }
+  if (endDate) {
+    query += ' AND timestamp <= ?';
+    params.push(endDate);
+  }
+
+  query += ' ORDER BY timestamp DESC LIMIT 1000';
+  const rows = await getDB().all(query, ...params);
+  res.json(rows.map(l => ({
+    id: l.id,
+    userId: l.user_id,
+    userType: l.user_type,
+    modelName: l.model_name,
+    ipAddress: l.ip_address,
+    timestamp: l.timestamp,
+    details: JSON.parse(l.details || '{}')
+  })));
+});
+
+app.get('/api/admin/logs/file', authenticateToken, isAdmin, async (req, res) => {
+  const { userId, startDate, endDate } = req.query;
+  let query = 'SELECT * FROM file_creation_logs WHERE 1=1';
+  const params = [];
+
+  if (userId) {
+    query += ' AND user_id = ?';
+    params.push(userId);
+  }
+  if (startDate) {
+    query += ' AND timestamp >= ?';
+    params.push(startDate);
+  }
+  if (endDate) {
+    query += ' AND timestamp <= ?';
+    params.push(endDate);
+  }
+
+  query += ' ORDER BY timestamp DESC LIMIT 1000';
+  const rows = await getDB().all(query, ...params);
+  res.json(rows.map(l => ({
+    id: l.id,
+    userId: l.user_id,
+    userType: l.user_type,
+    fileId: l.file_id,
+    fileTitle: l.file_title,
+    ipAddress: l.ip_address,
+    timestamp: l.timestamp
+  })));
 });
 
 app.put('/api/admin/users/:id/ai-config', authenticateToken, isAdmin, async (req, res) => {

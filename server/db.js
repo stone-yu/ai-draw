@@ -99,6 +99,33 @@ export async function initDB() {
       created_at TEXT,
       updated_at TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS local_users (
+      id TEXT PRIMARY KEY,
+      ip_address TEXT,
+      first_seen_at TEXT,
+      last_seen_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS ai_chat_logs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      user_type TEXT, -- 'cloud' or 'local'
+      model_name TEXT,
+      ip_address TEXT,
+      timestamp TEXT,
+      details TEXT -- JSON string with more info if needed
+    );
+
+    CREATE TABLE IF NOT EXISTS file_creation_logs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      user_type TEXT, -- 'cloud' or 'local'
+      file_id TEXT,
+      file_title TEXT,
+      ip_address TEXT,
+      timestamp TEXT
+    );
   `);
 
   await migrateData();

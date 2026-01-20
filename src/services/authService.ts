@@ -388,6 +388,32 @@ export const authService = {
     if (!response.ok) throw new Error('Failed to delete example project')
   },
 
+  async getLocalUsers() {
+    const response = await fetch('/api/admin/local-users', {
+      headers: this.getAuthHeader()
+    })
+    if (!response.ok) throw new Error('Failed to fetch local users')
+    return await response.json()
+  },
+
+  async getChatLogs(params: { userId?: string, startDate?: string, endDate?: string }) {
+    const query = new URLSearchParams(params as any).toString()
+    const response = await fetch(`/api/admin/logs/chat?${query}`, {
+      headers: this.getAuthHeader()
+    })
+    if (!response.ok) throw new Error('Failed to fetch chat logs')
+    return await response.json()
+  },
+
+  async getFileLogs(params: { userId?: string, startDate?: string, endDate?: string }) {
+    const query = new URLSearchParams(params as any).toString()
+    const response = await fetch(`/api/admin/logs/file?${query}`, {
+      headers: this.getAuthHeader()
+    })
+    if (!response.ok) throw new Error('Failed to fetch file logs')
+    return await response.json()
+  },
+
   async validateAIConfig(config: any) {
     const mode = useStorageModeStore.getState().mode
     if (mode === 'local') {
@@ -408,6 +434,69 @@ export const authService = {
     })
     if (!response.ok) throw new Error('Failed to validate AI config')
     return await response.json()
+  },
+
+  async logAIChat(data: {
+    userId: string
+    userType: 'cloud' | 'local'
+    modelName: string
+    details: any
+  }) {
+    try {
+      const response = await fetch('/api/logs/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeader()
+        },
+        body: JSON.stringify(data)
+      })
+      if (!response.ok) {
+        console.error('Failed to log AI chat')
+      }
+    } catch (error) {
+      console.error('Failed to log AI chat:', error)
+    }
+  },
+
+  async logFileCreation(data: {
+    userId: string
+    userType: 'cloud' | 'local'
+    fileId: string
+    fileTitle: string
+  }) {
+    try {
+      const response = await fetch('/api/logs/file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeader()
+        },
+        body: JSON.stringify(data)
+      })
+      if (!response.ok) {
+        console.error('Failed to log file creation')
+      }
+    } catch (error) {
+      console.error('Failed to log file creation:', error)
+    }
+  },
+
+  async registerLocalUser(userId: string) {
+    try {
+      const response = await fetch('/api/local-users/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userId })
+      })
+      if (!response.ok) {
+        console.error('Failed to register local user')
+      }
+    } catch (error) {
+      console.error('Failed to register local user:', error)
+    }
   }
 }
 

@@ -2,6 +2,7 @@ import {v4 as uuidv4} from 'uuid'
 import type {EngineType, Project} from '@/types'
 import {authService} from './authService'
 import {useStorageModeStore} from '@/stores/storageModeStore'
+import {useAuthStore} from '@/stores/authStore'
 import {db} from './db'
 
 const API_BASE = '/api'
@@ -34,6 +35,16 @@ export const ProjectRepository = {
 
     if (mode === 'local') {
       await db.projects.add(project)
+
+      // Log file creation for local mode
+      const localUserId = useStorageModeStore.getState().localUserId
+      authService.logFileCreation({
+        userId: localUserId,
+        userType: 'local',
+        fileId: project.id,
+        fileTitle: project.title
+      })
+
       return project
     }
 
@@ -48,6 +59,17 @@ export const ProjectRepository = {
 
     if (!response.ok) {
       throw new Error('Failed to create project')
+    }
+
+    // Log file creation for cloud mode
+    const user = useAuthStore.getState().user
+    if (user) {
+      authService.logFileCreation({
+        userId: user.id,
+        userType: 'cloud',
+        fileId: project.id,
+        fileTitle: project.title
+      })
     }
 
     return project

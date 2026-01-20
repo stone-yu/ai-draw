@@ -16,12 +16,27 @@ import {
 } from '@/components/ui'
 import {authService, type ExampleProject} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
-import {Bot, Eye, EyeOff, FileCode, KeyRound, Megaphone, Pencil, Settings2, Trash2, User, Users} from 'lucide-react'
+import {
+  BarChart3,
+  Bot,
+  Eye,
+  EyeOff,
+  FileCode,
+  KeyRound,
+  Megaphone,
+  Pencil,
+  Settings2,
+  Trash2,
+  User,
+  Users
+} from 'lucide-react'
 import {useNavigate} from 'react-router-dom'
 import {useAuthStore} from '@/stores/authStore'
 import {useSystemStore} from '@/stores/systemStore'
 import {ENGINES} from '@/constants'
 import type {EngineType} from '@/types'
+import {UsageStatistics} from './AdminUsageStatsPage'
+import {UserManagementTabs} from './AdminUserManagement'
 
 export function AdminPage() {
   const [activeTab, setActiveTab] = useState(() => {
@@ -109,6 +124,17 @@ export function AdminPage() {
                     <FileCode className="h-4 w-4" />
                     <span>示例文件管理</span>
                   </button>
+                  <button
+                    onClick={() => setActiveTab('stats')}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      activeTab === 'stats'
+                        ? 'bg-primary text-surface'
+                        : 'text-muted hover:bg-background hover:text-primary'
+                    }`}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    <span>使用统计</span>
+                  </button>
                 </nav>
               </div>
 
@@ -117,7 +143,7 @@ export function AdminPage() {
                 {activeTab === 'users' && (
                   <>
                     <h2 className="mb-6 text-lg font-medium text-primary">用户管理</h2>
-                    <UserManagement />
+                    <UserManagementTabs />
                   </>
                 )}
 
@@ -146,6 +172,13 @@ export function AdminPage() {
                   <>
                     <h2 className="mb-6 text-lg font-medium text-primary">示例文件管理</h2>
                     <ExampleProjectsManagement />
+                  </>
+                )}
+
+                {activeTab === 'stats' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">使用统计</h2>
+                    <UsageStatistics />
                   </>
                 )}
               </div>
