@@ -309,10 +309,11 @@ export function useAIGenerate() {
       const duration = ((metrics.endTime - metrics.startTime) / 1000).toFixed(1)
 
       // Final update to ensure everything is synced
-      const { plan, code } = parseResponse(useChatStore.getState().messages.find(m => m.id === assistantMsgId)?.content || '')
+      const currentMessageContent = useChatStore.getState().messages.find(m => m.id === assistantMsgId)?.content || ''
+      const { plan, code } = parseResponse(currentMessageContent)
 
       updateMessage(assistantMsgId, {
-        content: useChatStore.getState().messages.find(m => m.id === assistantMsgId)?.content || '',
+        content: currentMessageContent,
         plan: plan || undefined,
         code: finalCode, // Use validated code
         status: 'complete',

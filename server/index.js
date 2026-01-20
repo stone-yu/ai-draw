@@ -698,8 +698,19 @@ app.post('/api/auth/validate-ai-config', authenticateToken, async (req, res) => 
 
 // Groups
 app.get('/api/groups', authenticateToken, async (req, res) => {
-  const rows = await getDB().all('SELECT * FROM groups WHERE user_id = ? ORDER BY created_at DESC', req.user.id);
-  res.json(rows.map(mapGroup));
+  const db = getDB();
+  const rows = await db.all('SELECT * FROM groups WHERE user_id = ? ORDER BY created_at DESC', req.user.id);
+
+  // Get project counts for each group
+  const groups = await Promise.all(rows.map(async (group) => {
+    const countResult = await db.get('SELECT COUNT(*) as count FROM projects WHERE group_id = ? AND user_id = ?', group.id, req.user.id);
+    return {
+      ...mapGroup(group),
+      projectCount: countResult.count
+    };
+  }));
+
+  res.json(groups);
 });
 
 app.post('/api/groups', authenticateToken, async (req, res) => {

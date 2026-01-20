@@ -52,7 +52,16 @@ export const GroupRepository = {
     const mode = useStorageModeStore.getState().mode
 
     if (mode === 'local') {
-      return await db.groups.orderBy('createdAt').toArray()
+      const groups = await db.groups.orderBy('createdAt').toArray()
+      // Calculate counts for local groups
+      const groupsWithCounts = await Promise.all(groups.map(async (group) => {
+        const count = await db.projects.where('groupId').equals(group.id).count()
+        return {
+          ...group,
+          projectCount: count
+        }
+      }))
+      return groupsWithCounts
     }
 
     const response = await fetch(`${API_BASE}/groups`, {
@@ -65,6 +74,7 @@ export const GroupRepository = {
       ...g,
       createdAt: new Date(g.createdAt),
       updatedAt: new Date(g.updatedAt),
+      projectCount: g.projectCount || 0
     }))
   },
 

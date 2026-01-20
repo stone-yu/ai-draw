@@ -312,7 +312,7 @@ export function ProjectsPage() {
                   <Folder className="h-4 w-4" />
                   <span className="truncate">{group.name}</span>
                   <span className="ml-auto text-xs opacity-60">
-                    {/* Count is not available for groups without fetching */}
+                    {group.projectCount || 0}
                   </span>
                 </button>
 

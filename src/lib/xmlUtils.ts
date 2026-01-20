@@ -6,7 +6,7 @@
 const MAX_XML_SIZE = 1_000_000
 
 /** Maximum iterations for aggressive cell dropping to prevent infinite loops */
-const MAX_DROP_ITERATIONS = 10
+// const MAX_DROP_ITERATIONS = 10
 
 /** Structural attributes that should not be duplicated in draw.io */
 const STRUCTURAL_ATTRS = [
@@ -436,7 +436,7 @@ export function validateMxCellStructure(xml: string): string | null {
         const doc = parser.parseFromString(xml, "text/xml")
         const parseError = doc.querySelector("parsererror")
         if (parseError) {
-            const actualError = parseError.textContent || "Unknown parse error"
+            // const actualError = parseError.textContent || "Unknown parse error"
             return `Invalid XML: The XML contains syntax errors (likely unescaped special characters like <, >, & in attribute values). Please escape special characters: use &lt; for <, &gt; for >, &amp; for &, &quot; for ". Regenerate the diagram with properly escaped values.`
         }
 
@@ -632,6 +632,25 @@ export function autoFixXml(xml: string): { fixed: string; fixes: string[] } {
     if (missingSpacePattern.test(fixed)) {
         fixed = fixed.replace(/("[^"]*")([a-zA-Z][a-zA-Z0-9_:-]*=)/g, "$1 $2")
         fixes.push("Added missing space between attributes")
+    }
+
+    // 3f. Fix extra spaces around attribute equals sign
+    // e.g. style = "..." -> style="..."
+    const extraSpaceEqualsPattern = /([a-zA-Z][a-zA-Z0-9_:-]*)\s+=\s+"/g
+    if (extraSpaceEqualsPattern.test(fixed)) {
+        fixed = fixed.replace(/([a-zA-Z][a-zA-Z0-9_:-]*)\s+=\s+"/g, '$1="')
+        fixes.push("Removed extra spaces around attribute equals sign")
+    }
+
+    // 3g. Ensure mxGraphModel has default attributes
+    if (fixed.includes("<mxGraphModel>") && !fixed.includes("<mxGraphModel ")) {
+        // It has mxGraphModel but no attributes (or at least no space after tag name)
+        // Check if it's just <mxGraphModel>
+        if (/<mxGraphModel>/.test(fixed)) {
+            const defaultAttrs = 'dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" background="none" math="0" shadow="0"'
+            fixed = fixed.replace("<mxGraphModel>", `<mxGraphModel ${defaultAttrs}>`)
+            fixes.push("Added default attributes to mxGraphModel")
+        }
     }
 
     // 3e. Fix unescaped quotes in style color values
@@ -921,7 +940,7 @@ export function autoFixXml(xml: string): { fixed: string; fixes: string[] } {
     // 11. Fix nested mxCell by flattening
     // (Simplified version of w-next-ai-draw logic for brevity, focusing on duplicate IDs)
     const lines = fixed.split("\n")
-    let newLines: string[] = []
+    const newLines: string[] = []
     let nestedFixed = 0
     let extraClosingToRemove = 0
 
@@ -998,6 +1017,54 @@ export function autoFixXml(xml: string): { fixed: string; fixes: string[] } {
         fixes.push(`Generated ${emptyIdCount} missing ID(s)`)
     }
 
+    // 13. Aggressive: drop broken mxCell elements that can't be fixed
+    // Only do this if DOM parser still finds errors after all other fixes
+    if (typeof DOMParser !== "undefined") {
+        let droppedCells = 0
+        let maxIterations = 10
+        while (maxIterations-- > 0) {
+            const parser = new DOMParser()
+            const doc = parser.parseFromString(fixed, "text/xml")
+            const parseError = doc.querySelector("parsererror")
+            if (!parseError) break // Valid now!
+
+            const errText = parseError.textContent || ""
+            const match = errText.match(/(\d+):\d+:/)
+            if (!match) break
+
+            const errLine = parseInt(match[1], 10) - 1
+            const lines = fixed.split("\n")
+
+            // Find the mxCell containing this error line
+            let cellStart = errLine
+            let cellEnd = errLine
+
+            // Go back to find <mxCell
+            while (cellStart > 0 && !lines[cellStart].includes("<mxCell")) {
+                cellStart--
+            }
+
+            // Go forward to find </mxCell> or />
+            while (cellEnd < lines.length - 1) {
+                if (
+                    lines[cellEnd].includes("</mxCell>") ||
+                    lines[cellEnd].trim().endsWith("/>")
+                ) {
+                    break
+                }
+                cellEnd++
+            }
+
+            // Remove these lines
+            lines.splice(cellStart, cellEnd - cellStart + 1)
+            fixed = lines.join("\n")
+            droppedCells++
+        }
+        if (droppedCells > 0) {
+            fixes.push(`Dropped ${droppedCells} unfixable mxCell element(s)`)
+        }
+    }
+
     return { fixed, fixes }
 }
 
@@ -1010,7 +1077,7 @@ export function validateAndFixXml(xml: string): string {
     if (!xml || !xml.trim()) return ''
 
     // First validation attempt
-    let error = validateMxCellStructure(xml)
+    const error = validateMxCellStructure(xml)
 
     if (!error) {
         return xml
