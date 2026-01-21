@@ -137,8 +137,6 @@ export const authService = {
   },
 
   async getSystemSettings(): Promise<SystemSettings> {
-    const mode = useStorageModeStore.getState().mode
-
     // Always try to fetch public settings (for notifications etc)
     let publicSettings: SystemSettings = {}
     try {
@@ -150,17 +148,8 @@ export const authService = {
       // Ignore error
     }
 
-    if (mode === 'local') {
-      const localSettings = await db.configs.get('system_settings')
-      const settings = localSettings?.value || {}
-      // Merge public notifications
-      if (publicSettings.system?.notifications) {
-        if (!settings.system) settings.system = {}
-        settings.system.notifications = publicSettings.system.notifications
-      }
-      return settings
-    }
-
+    // Admin settings should always be fetched from server, regardless of storage mode
+    // Local mode only affects personal user settings, not admin settings
     try {
       const response = await fetch('/api/admin/settings', {
         headers: this.getAuthHeader()
@@ -183,12 +172,8 @@ export const authService = {
   },
 
   async updateSystemSettings(settings: SystemSettings) {
-    const mode = useStorageModeStore.getState().mode
-    if (mode === 'local') {
-      await db.configs.put({ key: 'system_settings', value: settings })
-      return settings
-    }
-
+    // Admin settings should always be saved to server, regardless of storage mode
+    // Local mode only affects personal user settings, not admin settings
     const response = await fetch('/api/admin/settings', {
       method: 'PUT',
       headers: {

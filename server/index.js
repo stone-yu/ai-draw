@@ -28,6 +28,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
+// Track last update time for each user to avoid excessive DB writes
+const lastSeenUpdateCache = new Map();
+
 app.use(cors({
   origin: function(origin, callback) {
     if (!origin) return callback(null, true);
@@ -116,7 +119,8 @@ function mapUser(u) {
     nickname: u.nickname,
     accessPassword: u.access_password,
     aiConfig: JSON.parse(u.ai_config || '{}'),
-    createdAt: u.created_at
+    createdAt: u.created_at,
+    lastSeenAt: u.last_seen_at
   };
 }
 
@@ -214,12 +218,28 @@ const authenticateToken = (req, res, next) => {
     return res.sendStatus(401);
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET, async (err, user) => {
     if (err) {
       if (process.env.DEBUG === 'true') console.error('[Auth] Token verification failed:', err.message);
       return res.sendStatus(403);
     }
     req.user = user;
+
+    // Update last_seen_at with throttling (max once per 5 minutes per user)
+    const now = Date.now();
+    const lastUpdate = lastSeenUpdateCache.get(user.id);
+    const fiveMinutes = 5 * 60 * 1000;
+
+    if (!lastUpdate || (now - lastUpdate) > fiveMinutes) {
+      lastSeenUpdateCache.set(user.id, now);
+
+      // Async update, don't block the request
+      const timestamp = new Date().toISOString();
+      getDB().run('UPDATE users SET last_seen_at = ? WHERE id = ?', timestamp, user.id).catch(e => {
+        if (process.env.DEBUG === 'true') console.error('[Auth] Failed to update last_seen_at:', e);
+      });
+    }
+
     next();
   });
 };
@@ -232,12 +252,27 @@ const optionalAuthenticateToken = (req, res, next) => {
     return next();
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET, async (err, user) => {
     if (err) {
       if (process.env.DEBUG === 'true') console.log('[Auth] Invalid token in optional auth, proceeding as anonymous');
       return next();
     }
     req.user = user;
+
+    // Update last_seen_at with throttling (same as authenticateToken)
+    const now = Date.now();
+    const lastUpdate = lastSeenUpdateCache.get(user.id);
+    const fiveMinutes = 5 * 60 * 1000;
+
+    if (!lastUpdate || (now - lastUpdate) > fiveMinutes) {
+      lastSeenUpdateCache.set(user.id, now);
+
+      const timestamp = new Date().toISOString();
+      getDB().run('UPDATE users SET last_seen_at = ? WHERE id = ?', timestamp, user.id).catch(e => {
+        if (process.env.DEBUG === 'true') console.error('[Auth] Failed to update last_seen_at:', e);
+      });
+    }
+
     next();
   });
 };
@@ -1214,7 +1249,50 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
   try {
     let apiKey, apiBaseUrl, modelId;
 
-    if (req.user) {
+    // Check if request body has aiConfig (local mode with custom config)
+    // This takes priority over user cloud config to support local mode in logged-in state
+    if (req.body.aiConfig) {
+      const config = req.body.aiConfig;
+      if (debug) console.log('[AI Service] Received aiConfig from request body:', JSON.stringify(config).substring(0, 200));
+
+      let foundCustomConfig = false;
+
+      // Check new provider format first
+      if (config.useCustom && config.currentProviderId && config.providers) {
+         const providerConfig = config.providers.find(p => p.id === config.currentProviderId);
+         if (providerConfig) {
+            apiKey = providerConfig.apiKey;
+            apiBaseUrl = providerConfig.baseUrl;
+            modelId = providerConfig.modelId;
+            foundCustomConfig = true;
+            if (debug) {
+              console.log('[AI Service] Using new provider format from request body:', providerConfig.name || providerConfig.id);
+              console.log('[AI Service] Provider config - apiKey:', apiKey ? '***' + apiKey.slice(-4) : 'empty',
+                          'baseUrl:', apiBaseUrl, 'modelId:', modelId);
+            }
+         }
+      }
+
+      // Fallback to legacy format (apiKey, baseUrl, modelId directly in config)
+      if (!foundCustomConfig && config.useCustom && config.apiKey) {
+          apiKey = config.apiKey;
+          apiBaseUrl = config.baseUrl;
+          modelId = config.modelId;
+          foundCustomConfig = true;
+          if (debug) console.log('[AI Service] Using legacy format from request body');
+      }
+
+      // If still no custom config, use system default
+      if (!foundCustomConfig) {
+        const settings = await getSettings();
+        const aiConfig = settings.ai || {};
+        apiKey = aiConfig.apiKey || process.env.AI_API_KEY;
+        apiBaseUrl = aiConfig.baseUrl || process.env.AI_BASE_URL || 'https://api.openai.com/v1';
+        modelId = aiConfig.modelId || process.env.AI_MODEL_ID || 'gpt-3.5-turbo';
+        if (debug) console.log('[AI Service] No custom config found in request body, using system global configuration');
+      }
+    } else if (req.user) {
+      // Logged in user without aiConfig in request body (cloud mode)
       const db = getDB();
       const row = await db.get('SELECT ai_config FROM users WHERE id = ?', req.user.id);
       const user = row ? { aiConfig: JSON.parse(row.ai_config || '{}') } : null;
@@ -1226,18 +1304,18 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
             apiKey = providerConfig.apiKey;
             apiBaseUrl = providerConfig.baseUrl;
             modelId = providerConfig.modelId;
-            if (debug) console.log(`[AI Service] Using user custom provider: ${providerConfig.name}`);
+            if (debug) console.log(`[AI Service] Using user cloud custom provider: ${providerConfig.name}`);
           } else {
             apiKey = user.aiConfig.apiKey;
             apiBaseUrl = user.aiConfig.baseUrl;
             modelId = user.aiConfig.modelId;
-            if (debug) console.log('[AI Service] Custom provider not found, falling back to legacy config');
+            if (debug) console.log('[AI Service] Custom provider not found, falling back to legacy cloud config');
           }
         } else {
           apiKey = user.aiConfig.apiKey;
           apiBaseUrl = user.aiConfig.baseUrl;
           modelId = user.aiConfig.modelId;
-          if (debug) console.log('[AI Service] Using user custom configuration (legacy)');
+          if (debug) console.log('[AI Service] Using user cloud custom configuration (legacy)');
         }
       } else {
         const settings = await getSettings();
@@ -1246,34 +1324,7 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
         apiKey = aiConfig.apiKey || process.env.AI_API_KEY;
         apiBaseUrl = aiConfig.baseUrl || process.env.AI_BASE_URL || 'https://api.openai.com/v1';
         modelId = aiConfig.modelId || process.env.AI_MODEL_ID || 'gpt-3.5-turbo';
-        if (debug) console.log('[AI Service] Using system global configuration');
-      }
-    } else if (req.body.aiConfig) {
-      const config = req.body.aiConfig;
-      if (config.useCustom && config.currentProviderId && config.providers) {
-         const providerConfig = config.providers.find(p => p.id === config.currentProviderId);
-         if (providerConfig) {
-            apiKey = providerConfig.apiKey;
-            apiBaseUrl = providerConfig.baseUrl;
-            modelId = providerConfig.modelId;
-         }
-      }
-
-      if (!apiKey) {
-          apiKey = config.apiKey;
-          apiBaseUrl = config.baseUrl;
-          modelId = config.modelId;
-      }
-
-      if (debug) console.log('[AI Service] Using provided config from request body');
-
-      if (!apiKey) {
-        const settings = await getSettings();
-        const aiConfig = settings.ai || {};
-        apiKey = aiConfig.apiKey || process.env.AI_API_KEY;
-        apiBaseUrl = aiConfig.baseUrl || process.env.AI_BASE_URL || 'https://api.openai.com/v1';
-        modelId = aiConfig.modelId || process.env.AI_MODEL_ID || 'gpt-3.5-turbo';
-        if (debug) console.log('[AI Service] Using system global configuration for local/anonymous user');
+        if (debug) console.log('[AI Service] User logged in but no custom config, using system global configuration');
       }
     } else {
       return res.status(401).json({ error: 'Unauthorized: No user or AI config provided' });
