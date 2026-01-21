@@ -2,7 +2,7 @@ import {useEffect, useState} from 'react'
 import {authService} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
 import {Button} from '@/components/ui'
-import {KeyRound, Trash2, User} from 'lucide-react'
+import {Copy, KeyRound, Trash2, User} from 'lucide-react'
 import {useAuthStore} from '@/stores/authStore'
 
 interface AppUser {
@@ -33,6 +33,11 @@ export function UserManagementTabs() {
   const [loading, setLoading] = useState(true)
   const { success, error: showError } = useToast()
   const currentUser = useAuthStore((state) => state.user)
+
+  const handleCopyUserId = (userId: string) => {
+    navigator.clipboard.writeText(userId)
+    success('用户ID已复制')
+  }
 
   useEffect(() => {
     loadUsers()
@@ -124,7 +129,16 @@ export function UserManagementTabs() {
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-muted">ID: {user.id}</div>
+                      <div className="text-xs text-muted flex items-center gap-1">
+                        <span>ID: {user.id}</span>
+                        <button
+                          onClick={() => handleCopyUserId(user.id)}
+                          className="inline-flex items-center justify-center hover:bg-muted rounded p-0.5 transition-colors"
+                          title="复制用户ID"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -188,7 +202,16 @@ export function UserManagementTabs() {
                       </div>
                       <div>
                         <div className="font-medium text-sm">本地用户</div>
-                        <div className="text-xs text-muted">ID: {user.id}</div>
+                        <div className="text-xs text-muted flex items-center gap-1">
+                          <span>ID: {user.id}</span>
+                          <button
+                            onClick={() => handleCopyUserId(user.id)}
+                            className="inline-flex items-center justify-center hover:bg-muted rounded p-0.5 transition-colors"
+                            title="复制用户ID"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        </div>
                         <div className="text-xs text-muted">IP: {user.ipAddress}</div>
                       </div>
                     </div>

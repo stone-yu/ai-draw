@@ -368,7 +368,7 @@ export function useAIGenerate() {
         authService.logAIChat({
           userId: localUserId,
           userType: 'local',
-          modelName: aiService.getCurrentModel?.() || 'unknown',
+          modelName: '系统默认模型',
           details: {
             userInput,
             isInitial,
@@ -383,7 +383,7 @@ export function useAIGenerate() {
           authService.logAIChat({
             userId: user.id,
             userType: 'cloud',
-            modelName: aiService.getCurrentModel?.() || 'unknown',
+            modelName: '系统默认模型',
             details: {
               userInput,
               isInitial,
@@ -609,7 +609,7 @@ export function useAIGenerate() {
         authService.logAIChat({
           userId: localUserId,
           userType: 'local',
-          modelName: aiService.getCurrentModel?.() || 'unknown',
+          modelName: '系统默认模型',
           details: {
             isRetry: true,
             engineType,
@@ -623,7 +623,7 @@ export function useAIGenerate() {
           authService.logAIChat({
             userId: user.id,
             userType: 'cloud',
-            modelName: aiService.getCurrentModel?.() || 'unknown',
+            modelName: '系统默认模型',
             details: {
               isRetry: true,
               engineType,
