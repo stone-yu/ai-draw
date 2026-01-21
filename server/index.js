@@ -893,6 +893,49 @@ app.post('/api/auth/validate-ai-config', authenticateToken, async (req, res) => 
   }
 });
 
+app.post('/api/ai/models', optionalAuthenticateToken, async (req, res) => {
+  let { apiKey, baseUrl } = req.body;
+
+  if (!apiKey || !baseUrl) {
+    return res.status(400).json({ error: '请提供 API Key 和 Base URL' });
+  }
+
+  if (baseUrl.endsWith('/')) {
+    baseUrl = baseUrl.slice(0, -1);
+  }
+
+  try {
+    const url = `${baseUrl}/models`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.status(response.status).json({ error: `获取模型列表失败: ${response.status} - ${errorText}` });
+    }
+
+    const data = await response.json();
+
+    // Extract model IDs from the response
+    // OpenAI format: { data: [{ id: "model-name" }] }
+    let models = [];
+    if (data.data && Array.isArray(data.data)) {
+      models = data.data.map(m => m.id || m.model || m.name).filter(Boolean);
+    } else if (Array.isArray(data)) {
+      models = data.map(m => m.id || m.model || m.name || m).filter(Boolean);
+    }
+
+    res.json({ models });
+  } catch (error) {
+    console.error('Fetch Models Error:', error);
+    res.status(500).json({ error: `获取模型列表失败: ${error.message}` });
+  }
+});
+
 // --- Protected API Routes ---
 
 // Groups

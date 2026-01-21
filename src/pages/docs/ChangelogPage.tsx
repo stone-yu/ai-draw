@@ -10,9 +10,18 @@ interface ChangelogItem {
 
 const CHANGELOG_DATA: ChangelogItem[] = [
   {
+    version: 'v1.8.0',
+    date: '2026-01-21',
+    isLatest: true,
+    content: `
+#### ✨ 新增能力
+- AI模型配置，增加获取模型列表功能。
+    `
+  },
+  {
     version: 'v1.7.0',
     date: '2026-01-17',
-    isLatest: true,
+    isLatest: false,
     content: `
 #### ✨ 新增能力
 - 支持本地存储模式，保护隐私，无需登录即可使用。

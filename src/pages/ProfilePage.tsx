@@ -16,7 +16,21 @@ import {
 import {quotaService} from '@/services/quotaService'
 import {authService} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
-import {Bot, Check, Copy, Eye, EyeOff, Plus, Server, Sparkles, Trash2, User} from 'lucide-react'
+import {
+  Bot,
+  Check,
+  ChevronDown,
+  Copy,
+  Download,
+  Eye,
+  EyeOff,
+  Plus,
+  Search,
+  Server,
+  Sparkles,
+  Trash2,
+  User
+} from 'lucide-react'
 import {useAuthStore} from '@/stores/authStore'
 import {useSystemStore} from '@/stores/systemStore'
 import {useStorageModeStore} from '@/stores/storageModeStore'
@@ -128,6 +142,7 @@ function UserAIConfigSection({
   const defaultModelPrompt = useSystemStore((state) => state.defaultModelPrompt)
   const [tempModelId, setTempModelId] = useState('')
   const storageMode = useStorageModeStore((state) => state.mode)
+  const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
 
   // Form state for the selected provider
   const [formData, setFormData] = useState<Provider>({
@@ -287,8 +302,35 @@ function UserAIConfigSection({
     }
   }
 
+  const handleModelsSelected = (selectedModels: string[]) => {
+    const currentModels = formData.models || []
+    const newModels = [...currentModels]
+
+    selectedModels.forEach(model => {
+      if (!newModels.includes(model)) {
+        newModels.push(model)
+      }
+    })
+
+    setFormData({
+      ...formData,
+      models: newModels
+    })
+
+    success(`已添加 ${selectedModels.length} 个模型`)
+  }
+
   return (
-    <div className="flex h-[600px] rounded-xl border border-border bg-card overflow-hidden">
+    <>
+      <ModelSelectorDialog
+        open={isModelSelectorOpen}
+        onOpenChange={setIsModelSelectorOpen}
+        apiKey={formData.apiKey}
+        baseUrl={formData.baseUrl}
+        existingModels={formData.models || []}
+        onConfirm={handleModelsSelected}
+      />
+    <div className="flex h-[calc(100vh-12rem)] min-h-[600px] rounded-xl border border-border bg-card overflow-hidden">
       {/* Left Sidebar */}
       <div className="w-64 border-r border-border bg-muted/30 flex flex-col">
         <div className="p-4 flex items-center justify-between">
@@ -492,6 +534,15 @@ function UserAIConfigSection({
                         className="flex-1"
                       />
                       <Button
+                        variant="outline"
+                        onClick={() => setIsModelSelectorOpen(true)}
+                        disabled={!formData.baseUrl || !formData.apiKey}
+                        title={!formData.baseUrl || !formData.apiKey ? '请先配置 API Key 和 Base URL' : '从供应商获取模型列表'}
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        获取模型
+                      </Button>
+                      <Button
                         variant="secondary"
                         onClick={() => {
                           if (tempModelId && !formData.models?.includes(tempModelId)) {
@@ -510,38 +561,37 @@ function UserAIConfigSection({
                       </Button>
                    </div>
 
-                   {/* Model List (Flat) */}
-                   <div className="grid grid-cols-1 gap-2 mt-2">
-                      {formData.models?.map(m => (
-                        <div key={m} className="flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm">
-                           <span className="truncate font-medium" title={m}>{m}</span>
-                           <div className="flex items-center gap-2">
-
-                               <Button
-                                 variant="ghost"
-                                 size="icon"
-                                 className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const newModels = formData.models?.filter(model => model !== m) || [];
-                                      let newModelId = formData.modelId;
-                                      if (newModelId === m) {
-                                          newModelId = newModels[0] || '';
-                                      }
-                                      setFormData({
-                                          ...formData,
-                                          models: newModels,
-                                          modelId: newModelId
-                                      })
-                                  }}
-                               >
-                                 <Trash2 className="h-3.5 w-3.5" />
-                               </Button>
-                           </div>
-                        </div>
-                      ))}
-                      {(!formData.models || formData.models.length === 0) && (
-                        <div className="text-sm text-muted-foreground py-2 text-center border border-dashed border-border rounded-md">
+                   {/* Model List (Tag Style) */}
+                   <div className="flex flex-wrap gap-2 mt-2 max-h-[300px] overflow-y-auto p-2 border border-dashed border-border rounded-md">
+                      {formData.models && formData.models.length > 0 ? (
+                        formData.models.map(m => (
+                          <div
+                            key={m}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors group"
+                          >
+                            <span className="font-medium" title={m}>{m}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const newModels = formData.models?.filter(model => model !== m) || [];
+                                let newModelId = formData.modelId;
+                                if (newModelId === m) {
+                                  newModelId = newModels[0] || '';
+                                }
+                                setFormData({
+                                  ...formData,
+                                  models: newModels,
+                                  modelId: newModelId
+                                })
+                              }}
+                              className="flex items-center justify-center h-4 w-4 rounded-full hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="w-full text-sm text-muted-foreground py-4 text-center">
                           暂无模型，请添加
                         </div>
                       )}
@@ -553,6 +603,263 @@ function UserAIConfigSection({
         )}
       </div>
     </div>
+    </>
+  )
+}
+
+interface ModelSelectorDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  apiKey: string
+  baseUrl: string
+  existingModels: string[]
+  onConfirm: (selectedModels: string[]) => void
+}
+
+interface ModelGroup {
+  name: string
+  count: number
+  models: string[]
+  expanded: boolean
+}
+
+function ModelSelectorDialog({ open, onOpenChange, apiKey, baseUrl, existingModels, onConfirm }: ModelSelectorDialogProps) {
+  const [loading, setLoading] = useState(false)
+  const [modelGroups, setModelGroups] = useState<ModelGroup[]>([])
+  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set())
+  const [searchQuery, setSearchQuery] = useState('')
+  const { error: showError } = useToast()
+
+  useEffect(() => {
+    if (open) {
+      fetchModels()
+    } else {
+      // Reset state when dialog closes
+      setSelectedModels(new Set())
+      setSearchQuery('')
+      setModelGroups([])
+    }
+  }, [open])
+
+  const fetchModels = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/ai/models', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authService.getAuthHeader()
+        },
+        body: JSON.stringify({
+          apiKey,
+          baseUrl
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '获取模型列表失败')
+      }
+
+      const data = await response.json()
+      const models = data.models || []
+
+      // Group models by provider/prefix
+      const groups = groupModels(models)
+      setModelGroups(groups)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : '获取模型列表失败')
+      onOpenChange(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const groupModels = (models: string[]): ModelGroup[] => {
+    const groupMap = new Map<string, string[]>()
+
+    models.forEach(model => {
+      // Extract provider name from model ID
+      const parts = model.split(/[-_/]/)
+      const provider = parts[0] || '其他'
+
+      if (!groupMap.has(provider)) {
+        groupMap.set(provider, [])
+      }
+      groupMap.get(provider)!.push(model)
+    })
+
+    return Array.from(groupMap.entries()).map(([name, models]) => ({
+      name,
+      count: models.length,
+      models,
+      expanded: false
+    }))
+  }
+
+  const toggleGroup = (groupName: string) => {
+    setModelGroups(modelGroups.map(g =>
+      g.name === groupName ? { ...g, expanded: !g.expanded } : g
+    ))
+  }
+
+  const toggleModel = (model: string) => {
+    const newSelected = new Set(selectedModels)
+    if (newSelected.has(model)) {
+      newSelected.delete(model)
+    } else {
+      newSelected.add(model)
+    }
+    setSelectedModels(newSelected)
+  }
+
+  const toggleGroupSelection = (group: ModelGroup) => {
+    const newSelected = new Set(selectedModels)
+    const allSelected = group.models.every(m => newSelected.has(m))
+
+    if (allSelected) {
+      group.models.forEach(m => newSelected.delete(m))
+    } else {
+      group.models.forEach(m => newSelected.add(m))
+    }
+    setSelectedModels(newSelected)
+  }
+
+  const handleConfirm = () => {
+    const modelsToAdd = Array.from(selectedModels).filter(m => !existingModels.includes(m))
+    if (modelsToAdd.length > 0) {
+      onConfirm(modelsToAdd)
+    }
+    onOpenChange(false)
+  }
+
+  const filteredGroups = modelGroups.map(group => ({
+    ...group,
+    models: group.models.filter(m =>
+      m.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  })).filter(g => g.models.length > 0)
+
+  const newModelsCount = Array.from(selectedModels).filter(m => !existingModels.includes(m)).length
+  const totalAvailableModels = modelGroups.reduce((sum, g) => sum + g.count, 0)
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl sm:max-w-[700px] max-h-[80vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <span>选择模型</span>
+            <span className="text-sm font-normal text-muted-foreground">
+              新获取的模型 ({totalAvailableModels}) / 已有的模型 ({existingModels.length})
+            </span>
+          </DialogTitle>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="py-12 text-center text-muted-foreground">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent mb-4"></div>
+            <div>正在获取模型列表...</div>
+          </div>
+        ) : (
+          <>
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索模型"
+                className="pl-10"
+              />
+            </div>
+
+            <div className="max-h-[400px] overflow-y-auto border rounded-lg">
+              {filteredGroups.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  {searchQuery ? '没有找到匹配的模型' : '没有可用的模型'}
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {filteredGroups.map((group) => {
+                    const groupSelected = group.models.filter(m => selectedModels.has(m)).length
+                    const allGroupSelected = groupSelected === group.models.length
+
+                    return (
+                      <div key={group.name} className="bg-background">
+                        <div className="flex items-center gap-2 px-4 py-3 hover:bg-muted/50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={allGroupSelected}
+                            onChange={() => toggleGroupSelection(group)}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          <button
+                            onClick={() => toggleGroup(group.name)}
+                            className="flex-1 flex items-center justify-between text-left"
+                          >
+                            <span className="font-medium">{group.name} ({group.models.length})</span>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${group.expanded ? 'rotate-180' : ''}`} />
+                          </button>
+                        </div>
+
+                        {group.expanded && (
+                          <div className="px-4 pb-2 space-y-1">
+                            {group.models.map(model => {
+                              const isExisting = existingModels.includes(model)
+                              const isSelected = selectedModels.has(model)
+
+                              return (
+                                <div
+                                  key={model}
+                                  className={`flex items-center gap-2 px-4 py-2 rounded text-sm ${
+                                    isExisting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-muted cursor-pointer'
+                                  }`}
+                                  onClick={() => !isExisting && toggleModel(model)}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    disabled={isExisting}
+                                    onChange={() => toggleModel(model)}
+                                    className="h-3.5 w-3.5 rounded border-gray-300"
+                                  />
+                                  <span className="flex-1 truncate" title={model}>
+                                    {model}
+                                  </span>
+                                  {isExisting && (
+                                    <span className="text-xs text-muted-foreground">(已添加)</span>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="text-sm text-muted-foreground text-right">
+              已选择 {newModelsCount} / {totalAvailableModels}
+            </div>
+          </>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full">
+            取消
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={loading || newModelsCount === 0}
+            className="rounded-full"
+          >
+            确定
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
