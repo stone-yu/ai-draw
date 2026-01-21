@@ -36,7 +36,7 @@ export const ProjectRepository = {
     if (mode === 'local') {
       await db.projects.add(project)
 
-      // Log file creation for local mode
+      // Log file creation - always use local user ID in local mode
       const localUserId = useStorageModeStore.getState().localUserId
       authService.logFileCreation({
         userId: localUserId,
@@ -61,7 +61,7 @@ export const ProjectRepository = {
       throw new Error('Failed to create project')
     }
 
-    // Log file creation for cloud mode
+    // Log file creation for cloud mode (only if user is logged in)
     const user = useAuthStore.getState().user
     if (user) {
       authService.logFileCreation({

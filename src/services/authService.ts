@@ -396,7 +396,7 @@ export const authService = {
     return await response.json()
   },
 
-  async getChatLogs(params: { userId?: string, startDate?: string, endDate?: string }) {
+  async getChatLogs(params: { userId?: string, startDate?: string, endDate?: string, page?: number, pageSize?: number }) {
     const query = new URLSearchParams(params as any).toString()
     const response = await fetch(`/api/admin/logs/chat?${query}`, {
       headers: this.getAuthHeader()
@@ -405,7 +405,7 @@ export const authService = {
     return await response.json()
   },
 
-  async getFileLogs(params: { userId?: string, startDate?: string, endDate?: string }) {
+  async getFileLogs(params: { userId?: string, startDate?: string, endDate?: string, page?: number, pageSize?: number }) {
     const query = new URLSearchParams(params as any).toString()
     const response = await fetch(`/api/admin/logs/file?${query}`, {
       headers: this.getAuthHeader()

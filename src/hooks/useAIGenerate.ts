@@ -360,14 +360,19 @@ export function useAIGenerate() {
       await ProjectRepository.update(currentProject.id, {})
       success('Diagram generated successfully')
 
-      // Log AI chat
+      // Log AI chat - always use local user ID in local mode
       const mode = useStorageModeStore.getState().mode
       const payloadMessages = usePayloadStore.getState().messages
-      if (mode === 'local') {
-        const localUserId = useStorageModeStore.getState().localUserId
+
+      // In local mode, always use local user ID regardless of cloud login status
+      const localUserId = useStorageModeStore.getState().localUserId
+      const userId = mode === 'local' ? localUserId : useAuthStore.getState().user?.id
+      const userType = mode === 'local' ? 'local' : 'cloud'
+
+      if (userId) {
         authService.logAIChat({
-          userId: localUserId,
-          userType: 'local',
+          userId,
+          userType,
           modelName: '系统默认模型',
           details: {
             userInput,
@@ -377,22 +382,6 @@ export function useAIGenerate() {
             messages: payloadMessages
           }
         })
-      } else {
-        const user = useAuthStore.getState().user
-        if (user) {
-          authService.logAIChat({
-            userId: user.id,
-            userType: 'cloud',
-            modelName: '系统默认模型',
-            details: {
-              userInput,
-              isInitial,
-              engineType,
-              duration: ((metrics.endTime || Date.now()) - metrics.startTime) / 1000,
-              messages: payloadMessages
-            }
-          })
-        }
       }
 
     } catch (error) {
@@ -601,14 +590,16 @@ export function useAIGenerate() {
       await ProjectRepository.update(currentProject.id, {})
       success('Diagram generated successfully')
 
-      // Log AI chat for retry
-      const mode = useStorageModeStore.getState().mode
-      const payloadMessages = usePayloadStore.getState().messages
-      if (mode === 'local') {
-        const localUserId = useStorageModeStore.getState().localUserId
+      // Log AI chat for retry - always use local user ID in local mode
+      const retryMode = useStorageModeStore.getState().mode
+      const localUserId = useStorageModeStore.getState().localUserId
+      const retryUserId = retryMode === 'local' ? localUserId : useAuthStore.getState().user?.id
+      const retryUserType = retryMode === 'local' ? 'local' : 'cloud'
+
+      if (retryUserId) {
         authService.logAIChat({
-          userId: localUserId,
-          userType: 'local',
+          userId: retryUserId,
+          userType: retryUserType,
           modelName: '系统默认模型',
           details: {
             isRetry: true,
@@ -617,21 +608,6 @@ export function useAIGenerate() {
             messages: payloadMessages
           }
         })
-      } else {
-        const user = useAuthStore.getState().user
-        if (user) {
-          authService.logAIChat({
-            userId: user.id,
-            userType: 'cloud',
-            modelName: '系统默认模型',
-            details: {
-              isRetry: true,
-              engineType,
-              duration: ((metrics.endTime || Date.now()) - metrics.startTime) / 1000,
-              messages: payloadMessages
-            }
-          })
-        }
       }
 
     } catch (error) {

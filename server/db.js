@@ -53,7 +53,8 @@ export async function initDB() {
       nickname TEXT,
       access_password TEXT,
       ai_config TEXT,
-      created_at TEXT
+      created_at TEXT,
+      last_seen_at TEXT
     );
 
     CREATE TABLE IF NOT EXISTS projects (
@@ -129,6 +130,14 @@ export async function initDB() {
   `);
 
   await migrateData();
+
+  // Add last_seen_at column if it doesn't exist
+  try {
+    await db.exec('ALTER TABLE users ADD COLUMN last_seen_at TEXT');
+    console.log('[DB] Added last_seen_at column to users table');
+  } catch (e) {
+    // Column already exists, ignore error
+  }
 
   return db;
 }

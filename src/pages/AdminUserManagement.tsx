@@ -10,6 +10,8 @@ interface AppUser {
   username: string
   role?: string
   hasAccessPassword?: boolean
+  createdAt?: string
+  lastSeenAt?: string
   aiConfig?: {
     useCustom?: boolean
     provider?: string
@@ -139,6 +141,16 @@ export function UserManagementTabs() {
                           <Copy className="h-3 w-3" />
                         </button>
                       </div>
+                      {user.createdAt && (
+                        <div className="text-xs text-muted">
+                          注册时间: {new Date(user.createdAt).toLocaleString('zh-CN')}
+                        </div>
+                      )}
+                      {user.lastSeenAt && (
+                        <div className="text-xs text-muted">
+                          最近访问: {new Date(user.lastSeenAt).toLocaleString('zh-CN')}
+                        </div>
+                      )}
                     </div>
                   </div>
 

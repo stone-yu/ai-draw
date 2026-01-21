@@ -48,6 +48,43 @@ export function HomePage() {
   // 新建项目弹窗状态
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
+  // Register local user when entering homepage
+  useEffect(() => {
+    const registerLocalUserIfNeeded = async () => {
+      if (storageMode === 'local') {
+        const localUserId = useStorageModeStore.getState().localUserId
+
+        // Check if already registered in IndexedDB
+        const registeredFlag = await db.configs.get('local_user_registered')
+
+        if (!registeredFlag) {
+          // First time, register and mark as registered
+          await authService.registerLocalUser(localUserId)
+          await db.configs.put({ key: 'local_user_registered', value: true })
+        } else {
+          // Already registered locally, check if exists in cloud
+          try {
+            const response = await fetch('/api/local-users/check', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: localUserId })
+            })
+            const data = await response.json()
+            if (!data.exists) {
+              // Not in cloud, register again
+              await authService.registerLocalUser(localUserId)
+            }
+          } catch (error) {
+            // If check fails, try to register anyway (will update if exists)
+            await authService.registerLocalUser(localUserId)
+          }
+        }
+      }
+    }
+
+    registerLocalUserIfNeeded()
+  }, [storageMode])
+
   const [previewProject, setPreviewProject] = useState<Project | null>(null)
   const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(true)
 

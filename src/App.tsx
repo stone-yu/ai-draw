@@ -1,4 +1,3 @@
-import {useEffect} from 'react'
 import {BrowserRouter, Route, Routes} from 'react-router-dom'
 import {Toaster, TooltipProvider} from '@/components/ui'
 import {
@@ -15,18 +14,8 @@ import {
   RegisterPage
 } from '@/pages'
 import {ProtectedRoute} from '@/components/auth/ProtectedRoute'
-import {useStorageModeStore} from '@/stores/storageModeStore'
-import {authService} from '@/services/authService'
 
 function App() {
-  // Register local user on app startup
-  useEffect(() => {
-    const mode = useStorageModeStore.getState().mode
-    if (mode === 'local') {
-      const localUserId = useStorageModeStore.getState().localUserId
-      authService.registerLocalUser(localUserId)
-    }
-  }, [])
 
   return (
     <TooltipProvider>

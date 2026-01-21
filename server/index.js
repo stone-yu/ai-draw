@@ -283,23 +283,38 @@ app.get('/api/public/example-projects', async (req, res) => {
 
 // --- Local User & Logs Routes ---
 app.post('/api/local-users/register', async (req, res) => {
-  const { id } = req.body;
-  if (!id) return res.status(400).json({ error: 'User ID is required' });
+  const { id, userId } = req.body;
+  const actualId = id || userId;
+  if (!actualId) return res.status(400).json({ error: 'User ID is required' });
 
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const now = new Date().toISOString();
   const db = getDB();
 
-  const existing = await db.get('SELECT id FROM local_users WHERE id = ?', id);
-  if (existing) {
-    await db.run('UPDATE local_users SET last_seen_at = ?, ip_address = ? WHERE id = ?', now, ip, id);
-  } else {
+  try {
+    // Use INSERT OR REPLACE to handle race conditions
+    // First, try to get existing first_seen_at
+    const existing = await db.get('SELECT first_seen_at FROM local_users WHERE id = ?', actualId);
+    const firstSeenAt = existing ? existing.first_seen_at : now;
+
     await db.run(
-      'INSERT INTO local_users (id, ip_address, first_seen_at, last_seen_at) VALUES (?, ?, ?, ?)',
-      id, ip, now, now
+      'INSERT OR REPLACE INTO local_users (id, ip_address, first_seen_at, last_seen_at) VALUES (?, ?, ?, ?)',
+      actualId, ip, firstSeenAt, now
     );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to register local user:', error);
+    res.status(500).json({ error: 'Failed to register user' });
   }
-  res.json({ success: true });
+});
+
+app.post('/api/local-users/check', async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: 'User ID is required' });
+
+  const db = getDB();
+  const existing = await db.get('SELECT id FROM local_users WHERE id = ?', userId);
+  res.json({ exists: !!existing });
 });
 
 app.post('/api/logs/chat', async (req, res) => {
@@ -330,7 +345,7 @@ app.post('/api/logs/file', async (req, res) => {
 
 // --- Admin Routes ---
 app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
-  const rows = await getDB().all('SELECT * FROM users');
+  const rows = await getDB().all('SELECT * FROM users ORDER BY created_at DESC');
   const users = rows.map(mapUser);
   const safeUsers = users.map(({ password, accessPassword, ...u }) => {
     return { ...u, role: u.role || 'user', hasAccessPassword: !!accessPassword };
@@ -349,65 +364,95 @@ app.get('/api/admin/local-users', authenticateToken, isAdmin, async (req, res) =
 });
 
 app.get('/api/admin/logs/chat', authenticateToken, isAdmin, async (req, res) => {
-  const { userId, startDate, endDate } = req.query;
+  const { userId, startDate, endDate, page = '1', pageSize = '5' } = req.query;
+  const pageNum = parseInt(page);
+  const pageSizeNum = parseInt(pageSize);
+  const offset = (pageNum - 1) * pageSizeNum;
+
   let query = 'SELECT * FROM ai_chat_logs WHERE 1=1';
+  let countQuery = 'SELECT COUNT(*) as total FROM ai_chat_logs WHERE 1=1';
   const params = [];
 
   if (userId) {
     query += ' AND user_id = ?';
+    countQuery += ' AND user_id = ?';
     params.push(userId);
   }
   if (startDate) {
     query += ' AND timestamp >= ?';
+    countQuery += ' AND timestamp >= ?';
     params.push(startDate);
   }
   if (endDate) {
     query += ' AND timestamp <= ?';
+    countQuery += ' AND timestamp <= ?';
     params.push(endDate);
   }
 
-  query += ' ORDER BY timestamp DESC LIMIT 1000';
-  const rows = await getDB().all(query, ...params);
-  res.json(rows.map(l => ({
-    id: l.id,
-    userId: l.user_id,
-    userType: l.user_type,
-    modelName: l.model_name,
-    ipAddress: l.ip_address,
-    timestamp: l.timestamp,
-    details: JSON.parse(l.details || '{}')
-  })));
+  query += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
+  const rows = await getDB().all(query, ...params, pageSizeNum, offset);
+  const countResult = await getDB().get(countQuery, ...params);
+
+  res.json({
+    items: rows.map(l => ({
+      id: l.id,
+      userId: l.user_id,
+      userType: l.user_type,
+      modelName: l.model_name,
+      ipAddress: l.ip_address,
+      timestamp: l.timestamp,
+      details: JSON.parse(l.details || '{}')
+    })),
+    total: countResult.total,
+    page: pageNum,
+    pageSize: pageSizeNum
+  });
 });
 
 app.get('/api/admin/logs/file', authenticateToken, isAdmin, async (req, res) => {
-  const { userId, startDate, endDate } = req.query;
+  const { userId, startDate, endDate, page = '1', pageSize = '5' } = req.query;
+  const pageNum = parseInt(page);
+  const pageSizeNum = parseInt(pageSize);
+  const offset = (pageNum - 1) * pageSizeNum;
+
   let query = 'SELECT * FROM file_creation_logs WHERE 1=1';
+  let countQuery = 'SELECT COUNT(*) as total FROM file_creation_logs WHERE 1=1';
   const params = [];
 
   if (userId) {
     query += ' AND user_id = ?';
+    countQuery += ' AND user_id = ?';
     params.push(userId);
   }
   if (startDate) {
     query += ' AND timestamp >= ?';
+    countQuery += ' AND timestamp >= ?';
     params.push(startDate);
   }
   if (endDate) {
     query += ' AND timestamp <= ?';
+    countQuery += ' AND timestamp <= ?';
     params.push(endDate);
   }
 
-  query += ' ORDER BY timestamp DESC LIMIT 1000';
-  const rows = await getDB().all(query, ...params);
-  res.json(rows.map(l => ({
-    id: l.id,
-    userId: l.user_id,
-    userType: l.user_type,
-    fileId: l.file_id,
-    fileTitle: l.file_title,
-    ipAddress: l.ip_address,
-    timestamp: l.timestamp
-  })));
+  query += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
+  const rows = await getDB().all(query, ...params, pageSizeNum, offset);
+  const countResult = await getDB().get(countQuery, ...params);
+
+  res.json({
+    items: rows.map(l => ({
+      id: l.id,
+      userId: l.user_id,
+      userType: l.user_type,
+      fileId: l.file_id,
+      fileTitle: l.file_title,
+      ipAddress: l.ip_address,
+      timestamp: l.timestamp
+    })),
+    total: countResult.total,
+    page: pageNum,
+    pageSize: pageSizeNum
+  });
 });
 
 app.put('/api/admin/users/:id/ai-config', authenticateToken, isAdmin, async (req, res) => {
