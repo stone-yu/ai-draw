@@ -17,9 +17,35 @@ import {
 import {ProtectedRoute} from '@/components/auth/ProtectedRoute'
 import {useSystemStore} from '@/stores/systemStore'
 import {updateFaviconColor} from '@/utils/favicon'
+import {authService} from '@/services/authService'
 
 function App() {
   const logoColor = useSystemStore((state) => state.logoColor)
+  const setLogoColor = useSystemStore((state) => state.setLogoColor)
+  const setSystemName = useSystemStore((state) => state.setSystemName)
+  const setDefaultEngine = useSystemStore((state) => state.setDefaultEngine)
+  const setDefaultModelPrompt = useSystemStore((state) => state.setDefaultModelPrompt)
+  const setNotifications = useSystemStore((state) => state.setNotifications)
+
+  // Load system settings on app startup
+  useEffect(() => {
+    const loadSystemSettings = async () => {
+      try {
+        const settings = await authService.getSystemSettings()
+        if (settings.system) {
+          if (settings.system.name) setSystemName(settings.system.name)
+          if (settings.system.logoColor) setLogoColor(settings.system.logoColor)
+          if (settings.system.defaultEngine) setDefaultEngine(settings.system.defaultEngine)
+          if (settings.system.defaultModelPrompt) setDefaultModelPrompt(settings.system.defaultModelPrompt)
+          if (settings.system.notifications) setNotifications(settings.system.notifications)
+        }
+      } catch (error) {
+        // Silently fail if settings can't be loaded (e.g., not logged in or server unavailable)
+        console.debug('Failed to load system settings:', error)
+      }
+    }
+    loadSystemSettings()
+  }, [setLogoColor, setSystemName, setDefaultEngine, setDefaultModelPrompt, setNotifications])
 
   // Update favicon when logo color changes
   useEffect(() => {

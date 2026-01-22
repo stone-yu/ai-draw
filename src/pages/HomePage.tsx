@@ -409,7 +409,7 @@ export function HomePage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-full shadow-sm" style={{ backgroundColor: logoColor }}>
                 <Logo className="h-7 w-7" style={{ color: 'white' }} />
               </div>
-              <span>一句话现所想</span>
+              <span>一句话见所想</span>
             </div>
             <p className="text-lg text-muted-foreground">与 AI 对话，让所想即刻呈现</p>
           </div>

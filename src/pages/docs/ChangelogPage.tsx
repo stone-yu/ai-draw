@@ -16,6 +16,7 @@ const CHANGELOG_DATA: ChangelogItem[] = [
     content: `
 #### ✨ 新增能力
 - AI模型配置，增加获取模型列表功能。
+- 增加文件排序和分页功能。
 #### 🛠 优化能力
 - 优化本地模式下，模型信息传输的安全性。
     `

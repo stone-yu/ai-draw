@@ -107,12 +107,13 @@ export const ProjectRepository = {
     page: number = 1,
     pageSize: number = 20,
     search: string = '',
-    groupId?: string | null
+    groupId?: string | null,
+    sortBy: 'createdAt' | 'updatedAt' = 'updatedAt'
   ): Promise<{ items: Project[], total: number }> {
     const mode = useStorageModeStore.getState().mode
 
     if (mode === 'local') {
-      let collection = db.projects.orderBy('updatedAt').reverse()
+      let collection = db.projects.orderBy(sortBy).reverse()
 
       if (search) {
         const lowerSearch = search.toLowerCase()
@@ -137,7 +138,8 @@ export const ProjectRepository = {
     const params = new URLSearchParams({
       page: page.toString(),
       pageSize: pageSize.toString(),
-      search
+      search,
+      sortBy
     })
     if (groupId) params.append('groupId', groupId)
 

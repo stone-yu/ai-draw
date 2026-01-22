@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react'
 import {useLocation, useNavigate} from 'react-router-dom'
 import {
+  ArrowDownUp,
   ChevronLeft,
   ChevronRight,
   Edit,
@@ -43,8 +44,9 @@ export function ProjectsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
-  const [pageSize] = useState(20)
+  const [pageSize] = useState(18)
   const [total, setTotal] = useState(0)
+  const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt'>('updatedAt')
 
   // Create dialog state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -83,7 +85,7 @@ export function ProjectsPage() {
   // Load data
   useEffect(() => {
     loadData()
-  }, [page, selectedGroupId, searchQuery])
+  }, [page, selectedGroupId, searchQuery, sortBy])
 
   // Open create dialog if navigated with state
   useEffect(() => {
@@ -97,7 +99,7 @@ export function ProjectsPage() {
   const loadData = async () => {
     setIsLoading(true)
     try {
-      const { items, total } = await ProjectRepository.getAll(page, pageSize, searchQuery, selectedGroupId)
+      const { items, total } = await ProjectRepository.getAll(page, pageSize, searchQuery, selectedGroupId, sortBy)
       const groupsData = await GroupRepository.getAll()
       setProjects(items)
       setTotal(total)
@@ -349,11 +351,43 @@ export function ProjectsPage() {
         <div className="flex flex-1 flex-col overflow-hidden bg-white">
           {/* Header */}
           <div className="flex h-14 items-center justify-between border-b border-border px-6">
-            <h1 className="text-lg font-semibold text-primary">
-              {selectedGroupId === null ? '全部文件' :
-               selectedGroupId === 'uncategorized' ? '未分组' :
-               groups.find(g => g.id === selectedGroupId)?.name || '文件列表'}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-lg font-semibold text-primary">
+                {selectedGroupId === null ? '全部文件' :
+                 selectedGroupId === 'uncategorized' ? '未分组' :
+                 groups.find(g => g.id === selectedGroupId)?.name || '文件列表'}
+              </h1>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="rounded-full h-8 gap-1.5">
+                    <ArrowDownUp className="h-3.5 w-3.5" />
+                    <span className="text-xs">
+                      {sortBy === 'updatedAt' ? '最后更新' : '创建时间'}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSortBy('updatedAt')
+                      setPage(1)
+                    }}
+                    className={sortBy === 'updatedAt' ? 'bg-primary/10 text-primary' : ''}
+                  >
+                    按最后更新时间
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSortBy('createdAt')
+                      setPage(1)
+                    }}
+                    className={sortBy === 'createdAt' ? 'bg-primary/10 text-primary' : ''}
+                  >
+                    按创建时间
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -400,18 +434,6 @@ export function ProjectsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-                {/* New Project Card - Only show when not searching and viewing All or Uncategorized */}
-                {!searchQuery && (selectedGroupId === null || selectedGroupId === 'uncategorized') && (
-                  <button
-                    onClick={() => setIsCreateDialogOpen(true)}
-                    className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-surface transition-all hover:border-primary hover:shadow-md"
-                    style={{ height: 'calc(8rem + 68px)' }}
-                  >
-                    <Plus className="mb-2 h-6 w-6 text-muted" />
-                    <span className="text-sm text-muted">新建文件</span>
-                  </button>
-                )}
-
                 {/* Project Cards */}
                 {projects.map((project) => (
                   <div
