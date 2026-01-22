@@ -31,6 +31,41 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 // Track last update time for each user to avoid excessive DB writes
 const lastSeenUpdateCache = new Map();
 
+// === Crypto Utilities for decrypting sensitive data ===
+/**
+ * XOR cipher for encryption/decryption
+ */
+function xorCipher(text, key) {
+  let result = '';
+  for (let i = 0; i < text.length; i++) {
+    result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+  }
+  return result;
+}
+
+/**
+ * Decrypt sensitive information sent from frontend
+ * @param {string} encrypted - Format: timestamp|encrypted_base64
+ * @returns {string} - Decrypted original value
+ */
+function decryptSensitive(encrypted) {
+  if (!encrypted) return '';
+
+  try {
+    const [timestamp, base64] = encrypted.split('|');
+    if (!timestamp || !base64) return '';
+
+    const key = timestamp + 'AI_DRAW_SECRET_2024';
+    const encryptedText = Buffer.from(base64, 'base64').toString('binary');
+    const decrypted = xorCipher(encryptedText, key);
+
+    return decrypted;
+  } catch (error) {
+    console.error('Decrypt error:', error);
+    return '';
+  }
+}
+
 app.use(cors({
   origin: function(origin, callback) {
     if (!origin) return callback(null, true);
@@ -1300,8 +1335,24 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
 
       let foundCustomConfig = false;
 
-      // Check new provider format first
-      if (config.useCustom && config.currentProviderId && config.providers) {
+      // Check new secure provider format (前端加密后的格式)
+      if (config.useCustom && config.provider) {
+         const provider = config.provider;
+         if (provider.auth) {
+            // 解密 auth 字段获取真实的 apiKey
+            apiKey = decryptSensitive(provider.auth);
+            apiBaseUrl = provider.baseUrl;
+            modelId = provider.modelId;
+            foundCustomConfig = true;
+            if (debug) {
+              console.log('[AI Service] Using secure provider format from request body:', provider.name || provider.id);
+              console.log('[AI Service] Provider config - apiKey:', apiKey ? '***' + apiKey.slice(-4) : 'empty',
+                          'baseUrl:', apiBaseUrl, 'modelId:', modelId);
+            }
+         }
+      }
+      // Legacy format: Check old provider format (兼容旧版本)
+      else if (config.useCustom && config.currentProviderId && config.providers) {
          const providerConfig = config.providers.find(p => p.id === config.currentProviderId);
          if (providerConfig) {
             apiKey = providerConfig.apiKey;
@@ -1309,20 +1360,19 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
             modelId = providerConfig.modelId;
             foundCustomConfig = true;
             if (debug) {
-              console.log('[AI Service] Using new provider format from request body:', providerConfig.name || providerConfig.id);
+              console.log('[AI Service] Using legacy provider format from request body:', providerConfig.name || providerConfig.id);
               console.log('[AI Service] Provider config - apiKey:', apiKey ? '***' + apiKey.slice(-4) : 'empty',
                           'baseUrl:', apiBaseUrl, 'modelId:', modelId);
             }
          }
       }
-
-      // Fallback to legacy format (apiKey, baseUrl, modelId directly in config)
-      if (!foundCustomConfig && config.useCustom && config.apiKey) {
+      // Legacy format: Fallback to old format (apiKey, baseUrl, modelId directly in config)
+      else if (config.useCustom && config.apiKey) {
           apiKey = config.apiKey;
           apiBaseUrl = config.baseUrl;
           modelId = config.modelId;
           foundCustomConfig = true;
-          if (debug) console.log('[AI Service] Using legacy format from request body');
+          if (debug) console.log('[AI Service] Using very old legacy format from request body');
       }
 
       // If still no custom config, use system default
@@ -1406,22 +1456,32 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+      try {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        res.write(chunk);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          res.write(chunk);
+        }
+
+        if (debug) {
+          const duration = Date.now() - startTime;
+          console.log(`[AI Service] Stream response completed. Duration: ${duration}ms`);
+        }
+
+        res.end();
+      } catch (streamError) {
+        console.error('Stream processing error:', streamError);
+        // 流式传输过程中出错，只能结束响应，无法再发送错误信息
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Stream processing error' });
+        } else {
+          res.end();
+        }
       }
-
-      if (debug) {
-        const duration = Date.now() - startTime;
-        console.log(`[AI Service] Stream response completed. Duration: ${duration}ms`);
-      }
-
-      res.end();
     } else {
       const data = await response.json();
       if (debug) {
@@ -1435,7 +1495,10 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Chat API Error:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    // 检查是否已经发送响应头，避免重复发送
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
   }
 });
 
