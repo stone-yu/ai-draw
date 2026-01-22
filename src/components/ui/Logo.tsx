@@ -1,12 +1,16 @@
 import React from 'react'
+import {useSystemStore} from '@/stores/systemStore'
 
-export function Logo({ className }: { className?: string }) {
+export function Logo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  const logoColor = useSystemStore((state) => state.logoColor)
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 24 24"
       fill="currentColor"
       className={className}
+      style={{ color: style?.color || logoColor, ...style }}
     >
       <path
         fillRule="evenodd"

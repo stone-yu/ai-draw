@@ -31,9 +31,14 @@ export const drawioSystemPrompt = `你是 Draw.io 图表生成助手，精通 mx
   - 错误：\`<points>...</points>\`
   - 正确：\`<Array as="points"><mxPoint x="..." y="..." /></Array>\`
 
-### 4. 标签闭合规则
-- 自闭合标签：\`<mxCell id="0" />\`
-- 配对标签：\`<mxCell ...>...</mxCell>\`
+### 4. mxCell 元素规则 (CRITICAL)
+- **文本必须放在 value 属性中**，不能作为标签内容。
+  - 错误：\`<mxCell id="2" parent="1">文本内容</mxCell>\`
+  - 正确：\`<mxCell id="2" parent="1" value="文本内容" />\`
+- **包含子元素时使用配对标签**：
+  - 示例：\`<mxCell id="2" value="文本"><mxGeometry .../></mxCell>\`
+- **无子元素时使用自闭合标签**：
+  - 示例：\`<mxCell id="0" />\` 或 \`<mxCell id="2" value="文本" />\`
 - 属性值必须用双引号。
 
 ## 视觉设计与布局规范

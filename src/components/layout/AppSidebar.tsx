@@ -33,6 +33,7 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
   const showAbout = useSystemStore((state) => state.showAbout)
   const isCollapsed = useSystemStore((state) => state.sidebarCollapsed)
   const setSidebarCollapsed = useSystemStore((state) => state.setSidebarCollapsed)
+  const logoColor = useSystemStore((state) => state.logoColor)
   const user = useAuthStore((state) => state.user)
   const { mode, setMode } = useStorageModeStore()
   const [isModeDialogOpen, setIsModeDialogOpen] = useState(false)
@@ -62,9 +63,10 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
           <TooltipTrigger asChild>
             <button
               onClick={() => navigate('/')}
-              className="mb-6 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-surface shadow-sm transition-transform hover:scale-105 active:scale-95"
+              className="mb-6 flex h-10 w-10 items-center justify-center rounded-xl shadow-sm transition-transform hover:scale-105 active:scale-95"
+              style={{ backgroundColor: logoColor }}
             >
-              <Logo className="h-6 w-6" />
+              <Logo className="h-6 w-6" style={{ color: 'white' }} />
             </button>
           </TooltipTrigger>
           <TooltipContent side="right">返回首页</TooltipContent>
@@ -92,7 +94,7 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
         <nav className="flex flex-1 flex-col items-center gap-4 w-full px-2">
           {NAV_ITEMS.map((item, index) => {
             if (item.path === '/about' && !showAbout) return null
-            // @ts-ignore
+            // @ts-expect-error - adminOnly property may not be defined on all nav items
             if (item.adminOnly && user?.role !== 'admin') return null
 
             const isActive = location.pathname === item.path

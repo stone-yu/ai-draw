@@ -19,7 +19,7 @@ jobs:
           TAG=${GITHUB_REF#refs/tags/}
           echo "TAG=$TAG" >> $GITHUB_ENV
           echo "$TAG" > VERSION
-          echo "Building tag: $TAG for ${{ matrix.arch }}"
+          echo "Building tag: $TAG"
 
       # setup-qemu 如果您想使用 QEMU 添加仿真支持以便能够针对更多平台进行构建，则 action 会很有用
       - name: Set up QEMU
@@ -54,7 +54,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            crpi-t6gbnskydokpa6fx.cn-beijing.personal.cr.aliyuncs.com/stone-yu/ai-draw:${{ env.TAG }}-${{ matrix.arch }}
+            crpi-t6gbnskydokpa6fx.cn-beijing.personal.cr.aliyuncs.com/stone-yu/ai-draw:${{ env.TAG }}
             crpi-t6gbnskydokpa6fx.cn-beijing.personal.cr.aliyuncs.com/stone-yu/ai-draw:latest
             ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

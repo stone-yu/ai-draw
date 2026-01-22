@@ -7,6 +7,7 @@ interface SystemState {
   sidebarCollapsed: boolean
   defaultEngine: EngineType
   defaultModelPrompt: string
+  logoColor: string
   notifications: {
     homepage?: string
     homepageEnabled?: boolean
@@ -20,6 +21,7 @@ interface SystemState {
   setSidebarCollapsed: (collapsed: boolean) => void
   setDefaultEngine: (engine: EngineType) => void
   setDefaultModelPrompt: (prompt: string) => void
+  setLogoColor: (color: string) => void
   setNotifications: (notifications: {
     homepage?: string;
     homepageEnabled?: boolean;
@@ -36,6 +38,7 @@ export const useSystemStore = create<SystemState>((set) => ({
   sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true',
   defaultEngine: (localStorage.getItem('defaultEngine') as EngineType) || (window as any)._ENV_?.DEFAULT_ENGINE || 'drawio',
   defaultModelPrompt: (window as any)._ENV_?.DEFAULT_MODEL_PROMPT || '使用服务端配置的模型，此信息管理员可以在系统设置-基础设置里面进行自定义',
+  logoColor: (window as any)._ENV_?.LOGO_COLOR || '#000000', // Default to black
   notifications: {},
   setSystemName: (name) => set({ systemName: name }),
   setShowAbout: (show) => set({ showAbout: show }),
@@ -48,6 +51,7 @@ export const useSystemStore = create<SystemState>((set) => ({
     set({ defaultEngine: engine })
   },
   setDefaultModelPrompt: (prompt) => set({ defaultModelPrompt: prompt }),
+  setLogoColor: (color) => set({ logoColor: color }),
   setNotifications: (notifications) => set({ notifications }),
 }))
 

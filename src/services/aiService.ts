@@ -66,7 +66,8 @@ async function prepareSecureAiConfig(): Promise<Record<string, unknown> | undefi
 
   const configItem = await db.configs.get('user_ai_config')
   if (!configItem?.value) {
-    return undefined
+    // 本地模式没有配置，明确返回使用系统默认
+    return { useCustom: false }
   }
 
   const aiConfig = configItem.value as {
@@ -81,9 +82,9 @@ async function prepareSecureAiConfig(): Promise<Record<string, unknown> | undefi
     }>
   }
 
-  // 情况1: 使用系统默认模型，不传任何用户配置
+  // 情况1: 使用系统默认模型，传递明确标识（防止使用云端用户配置）
   if (!aiConfig.useCustom) {
-    return undefined
+    return { useCustom: false }
   }
 
   // 情况2: 使用自定义模型，只传当前使用的模型配置
@@ -108,8 +109,8 @@ async function prepareSecureAiConfig(): Promise<Record<string, unknown> | undefi
     }
   }
 
-  // 兜底：返回空对象表示使用系统配置
-  return undefined
+  // 兜底：返回 useCustom: false 表示使用系统配置
+  return { useCustom: false }
 }
 
 interface ParseUrlResponse {

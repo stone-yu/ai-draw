@@ -730,6 +730,83 @@ export function autoFixXml(xml: string): { fixed: string; fixes: string[] } {
         fixes.push("Fixed <Cell> tags to <mxCell>")
     }
 
+    // 8a. Fix mxCell with text content (text should be in value attribute, not as child content)
+    // Pattern: <mxCell ...>TEXT</mxCell> or <mxCell ...><mxGeometry .../>\nTEXT</mxCell>
+    // This handles AI-generated XML where text is placed directly as child content instead of in value attribute
+    const mxCellWithContentPattern = /<mxCell([^>]*?)>([\s\S]*?)<\/mxCell>/g
+    let mxCellContentMatch
+    const mxCellTextFixes: string[] = []
+
+    // First pass: identify cells that need fixing
+    while ((mxCellContentMatch = mxCellWithContentPattern.exec(fixed)) !== null) {
+        const attributes = mxCellContentMatch[1]
+        const innerContent = mxCellContentMatch[2]
+
+        // Skip if already has value attribute
+        if (/value\s*=/.test(attributes)) {
+            continue
+        }
+
+        // Extract any geometry elements
+        const hasGeometry = /<mxGeometry/.test(innerContent)
+
+        // Extract text content (everything that's not XML tags)
+        let textContent = innerContent
+            .replace(/<mxGeometry[\s\S]*?\/>/g, '') // Remove self-closing mxGeometry
+            .replace(/<mxGeometry[\s\S]*?<\/mxGeometry>/g, '') // Remove paired mxGeometry
+            .trim()
+
+        // If there's text content, record it for fixing
+        if (textContent) {
+            mxCellTextFixes.push(textContent)
+        }
+    }
+
+    // Second pass: apply fixes
+    if (mxCellTextFixes.length > 0) {
+        fixed = fixed.replace(
+            /<mxCell([^>]*?)>([\s\S]*?)<\/mxCell>/g,
+            (match, attributes, innerContent) => {
+                // Skip if already has value attribute
+                if (/value\s*=/.test(attributes)) {
+                    return match
+                }
+
+                // Extract geometry elements
+                const geometryMatch = innerContent.match(/<mxGeometry[\s\S]*?(\/>|<\/mxGeometry>)/g)
+                const geometryElements = geometryMatch ? geometryMatch.join('') : ''
+
+                // Extract text content
+                let textContent = innerContent
+                    .replace(/<mxGeometry[\s\S]*?\/>/g, '')
+                    .replace(/<mxGeometry[\s\S]*?<\/mxGeometry>/g, '')
+                    .trim()
+
+                // If no text content, keep original
+                if (!textContent) {
+                    return match
+                }
+
+                // Escape special XML characters in text
+                const escapedText = textContent
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+
+                // Reconstruct mxCell with value attribute
+                if (geometryElements) {
+                    // Has geometry: <mxCell ... value="text"><mxGeometry .../></mxCell>
+                    return `<mxCell${attributes} value="${escapedText}">${geometryElements}</mxCell>`
+                } else {
+                    // No geometry: <mxCell ... value="text" />
+                    return `<mxCell${attributes} value="${escapedText}" />`
+                }
+            }
+        )
+        fixes.push(`Fixed ${mxCellTextFixes.length} mxCell element(s) with text content - moved text to value attribute`)
+    }
+
     // 8b. Remove non-draw.io tags
     const validDrawioTags = new Set([
         "mxfile",

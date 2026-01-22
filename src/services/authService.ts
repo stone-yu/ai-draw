@@ -18,6 +18,7 @@ export interface SystemSettings {
     allowRegister?: boolean
     defaultEngine?: EngineType
     defaultModelPrompt?: string
+    logoColor?: string
     notifications?: {
       homepage?: string
       homepageEnabled?: boolean

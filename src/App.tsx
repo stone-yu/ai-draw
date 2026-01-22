@@ -1,3 +1,4 @@
+import {useEffect} from 'react'
 import {BrowserRouter, Route, Routes} from 'react-router-dom'
 import {Toaster, TooltipProvider} from '@/components/ui'
 import {
@@ -14,8 +15,16 @@ import {
   RegisterPage
 } from '@/pages'
 import {ProtectedRoute} from '@/components/auth/ProtectedRoute'
+import {useSystemStore} from '@/stores/systemStore'
+import {updateFaviconColor} from '@/utils/favicon'
 
 function App() {
+  const logoColor = useSystemStore((state) => state.logoColor)
+
+  // Update favicon when logo color changes
+  useEffect(() => {
+    updateFaviconColor(logoColor)
+  }, [logoColor])
 
   return (
     <TooltipProvider>

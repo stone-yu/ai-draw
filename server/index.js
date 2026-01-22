@@ -1327,7 +1327,7 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
   try {
     let apiKey, apiBaseUrl, modelId;
 
-    // Check if request body has aiConfig (local mode with custom config)
+    // Check if request body has aiConfig (local mode with custom config OR local mode using system default)
     // This takes priority over user cloud config to support local mode in logged-in state
     if (req.body.aiConfig) {
       const config = req.body.aiConfig;
@@ -1335,8 +1335,15 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
 
       let foundCustomConfig = false;
 
+      // Check if local mode explicitly requests system default (useCustom: false)
+      // This prevents using cloud user config when in local mode
+      if (config.useCustom === false) {
+        // Local mode using system default, skip to system config
+        if (debug) console.log('[AI Service] Local mode using system default (useCustom: false)');
+        foundCustomConfig = false; // Will fall through to system config below
+      }
       // Check new secure provider format (前端加密后的格式)
-      if (config.useCustom && config.provider) {
+      else if (config.useCustom && config.provider) {
          const provider = config.provider;
          if (provider.auth) {
             // 解密 auth 字段获取真实的 apiKey

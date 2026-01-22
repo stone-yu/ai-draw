@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Logo,
   Select,
   SelectContent,
   SelectItem,
@@ -1095,18 +1096,18 @@ function CreateExampleProjectDialog({ open, onOpenChange }: { open: boolean, onO
 
 function BasicSettings() {
   const [systemName, setSystemName] = useState('')
-  const [showAbout, setShowAbout] = useState(true)
   const [allowRegister, setAllowRegister] = useState(true)
   const [defaultEngine, setDefaultEngine] = useState<EngineType>('drawio')
   const [defaultModelPrompt, setDefaultModelPrompt] = useState('')
+  const [logoColor, setLogoColorLocal] = useState('#000000')
   const [aiSettings, setAiSettings] = useState<any>({})
 
   const [loading, setLoading] = useState(false)
   const { success, error: showError } = useToast()
   const setGlobalSystemName = useSystemStore((state) => state.setSystemName)
-  const setGlobalShowAbout = useSystemStore((state) => state.setShowAbout)
   const setGlobalDefaultEngine = useSystemStore((state) => state.setDefaultEngine)
   const setGlobalDefaultModelPrompt = useSystemStore((state) => state.setDefaultModelPrompt)
+  const setGlobalLogoColor = useSystemStore((state) => state.setLogoColor)
 
   useEffect(() => {
     loadSettings()
@@ -1117,22 +1118,22 @@ function BasicSettings() {
       const settings = await authService.getSystemSettings()
       if (settings.system) {
         setSystemName(settings.system.name || 'AI Draw')
-        setShowAbout(settings.system.showAbout !== false)
         setAllowRegister(settings.system.allowRegister !== false)
         setDefaultEngine(settings.system.defaultEngine || 'drawio')
         setDefaultModelPrompt(settings.system.defaultModelPrompt || '使用服务端配置的模型，此信息管理员可以在系统设置-基础设置里面进行自定义')
+        setLogoColorLocal(settings.system.logoColor || '#000000')
       } else {
         setSystemName('AI Draw')
-        setShowAbout(true)
         setAllowRegister(true)
         setDefaultEngine('drawio')
         setDefaultModelPrompt('使用服务端配置的模型，此信息管理员可以在系统设置-基础设置里面进行自定义')
+        setLogoColorLocal('#000000')
       }
 
       if (settings.ai) {
         setAiSettings(settings.ai)
       }
-    } catch (err) {
+    } catch {
       showError('加载配置失败')
     }
   }
@@ -1143,20 +1144,20 @@ function BasicSettings() {
       await authService.updateSystemSettings({
         system: {
           name: systemName,
-          showAbout,
           allowRegister,
           defaultEngine,
-          defaultModelPrompt
+          defaultModelPrompt,
+          logoColor
         },
         ai: aiSettings
       })
       setGlobalSystemName(systemName)
-      setGlobalShowAbout(showAbout)
       setGlobalDefaultEngine(defaultEngine)
       setGlobalDefaultModelPrompt(defaultModelPrompt)
+      setGlobalLogoColor(logoColor)
       document.title = systemName
       success('基础配置已保存')
-    } catch (err) {
+    } catch {
       showError('保存配置失败')
     } finally {
       setLoading(false)
@@ -1209,32 +1210,44 @@ function BasicSettings() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted">Logo 颜色</label>
+        <div className="flex items-center gap-3">
           <input
-            type="checkbox"
-            id="showAbout"
-            checked={showAbout}
-            onChange={(e) => setShowAbout(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            type="color"
+            value={logoColor}
+            onChange={(e) => setLogoColorLocal(e.target.value)}
+            className="h-10 w-20 rounded-xl border border-input cursor-pointer"
           />
-          <label htmlFor="showAbout" className="text-sm font-medium text-muted cursor-pointer">
-            显示"关于"菜单
-          </label>
+          <Input
+            value={logoColor}
+            onChange={(e) => setLogoColorLocal(e.target.value)}
+            placeholder="#000000"
+            className="rounded-xl flex-1"
+          />
+          <div
+            className="h-10 w-10 rounded-xl border border-border flex items-center justify-center"
+            style={{ backgroundColor: logoColor }}
+          >
+            <Logo style={{ color: 'white' }} className="h-6 w-6" />
+          </div>
         </div>
+        <p className="mt-2 text-xs text-muted">
+          设置系统 Logo 的主题颜色，将应用到首页、侧边栏等所有 Logo 显示位置。支持十六进制颜色码（如 #000000）。
+        </p>
+      </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="allowRegister"
-            checked={allowRegister}
-            onChange={(e) => setAllowRegister(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-          />
-          <label htmlFor="allowRegister" className="text-sm font-medium text-muted cursor-pointer">
-            开放用户注册
-          </label>
-        </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="allowRegister"
+          checked={allowRegister}
+          onChange={(e) => setAllowRegister(e.target.checked)}
+          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+        />
+        <label htmlFor="allowRegister" className="text-sm font-medium text-muted cursor-pointer">
+          开放用户注册
+        </label>
       </div>
 
       <div className="flex gap-3 pt-4">

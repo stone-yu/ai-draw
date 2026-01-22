@@ -30,6 +30,7 @@ export function HomePage() {
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState('')
   const defaultEngine = useSystemStore((state) => state.defaultEngine)
+  const logoColor = useSystemStore((state) => state.logoColor)
   const notifications = useSystemStore((state) => state.notifications)
   const [isLoading, setIsLoading] = useState(false)
   const [recentProjects, setRecentProjects] = useState<Project[]>([])
@@ -405,8 +406,8 @@ export function HomePage() {
           <div className="mb-12 flex flex-col items-center">
             <div className="mb-6 flex items-center gap-3 text-4xl font-bold text-primary sm:text-5xl">
               <span>AI Draw</span>
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-surface shadow-sm">
-                <Logo className="h-7 w-7" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full shadow-sm" style={{ backgroundColor: logoColor }}>
+                <Logo className="h-7 w-7" style={{ color: 'white' }} />
               </div>
               <span>一句话现所想</span>
             </div>
@@ -744,7 +745,7 @@ export function HomePage() {
                         更新于 {formatDate(project.updatedAt)}
                       </div>
                     </div>
-                    <div className="flex h-20 items-center justify-center bg-background/50 p-3 border-b border-dashed border-border/60 overflow-hidden">
+                    <div className="flex h-20 items-center justify-center bg-white p-3 border-b border-dashed border-border/60 overflow-hidden">
                       {project.thumbnail ? (
                         <div className="flex h-full w-full items-center justify-center">
                           <img
