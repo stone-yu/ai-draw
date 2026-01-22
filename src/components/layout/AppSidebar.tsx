@@ -94,8 +94,7 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
         <nav className="flex flex-1 flex-col items-center gap-4 w-full px-2">
           {NAV_ITEMS.map((item, index) => {
             if (item.path === '/about' && !showAbout) return null
-            // @ts-expect-error - adminOnly property may not be defined on all nav items
-            if (item.adminOnly && user?.role !== 'admin') return null
+            if ('adminOnly' in item && item.adminOnly && user?.role !== 'admin') return null
 
             const isActive = location.pathname === item.path
 
