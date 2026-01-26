@@ -710,6 +710,7 @@ function NotificationSettings() {
   const loadSettings = async () => {
     try {
       const settings = await authService.getSystemSettings()
+      console.log('[NotificationSettings] Loaded settings:', settings)
       if (settings.system?.notifications) {
         setHomepageNotification(settings.system.notifications.homepage || '')
         setHomepageEnabled(settings.system.notifications.homepageEnabled !== false)
@@ -722,7 +723,8 @@ function NotificationSettings() {
         setSystemSettings(settings.system)
       }
     } catch (err) {
-      showError('加载配置失败')
+      console.error('[NotificationSettings] Failed to load settings:', err)
+      showError(`加载配置失败: ${err instanceof Error ? err.message : '未知错误'}`)
     }
   }
 

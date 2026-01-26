@@ -1,5 +1,5 @@
 import {Link, useLocation} from 'react-router-dom'
-import {Book, ChevronLeft, History, MessageSquare, Heart, Smartphone, CreditCard} from 'lucide-react'
+import {Book, ChevronLeft, CreditCard, Heart, History, MessageSquare, Smartphone} from 'lucide-react'
 import {AppHeader} from '@/components/layout/AppHeader'
 import {useState} from 'react'
 
