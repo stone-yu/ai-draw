@@ -87,7 +87,7 @@ ${currentCode}
  * Extract code from AI response
  * Handles markdown code blocks and plain text
  */
-export function extractCode(response: string, _engineType: EngineType): string {
+export function extractCode(response: string, engineType: EngineType): string {
   let code = response.trim()
 
   // Remove plan if present
@@ -112,5 +112,64 @@ export function extractCode(response: string, _engineType: EngineType): string {
     }
   }
 
+  // For JSON-based engines (excalidraw), truncate after the complete JSON structure
+  // This removes trailing markers like [done], extra text, or incomplete data
+  if (engineType === 'excalidraw') {
+    code = truncateAfterCompleteJSON(code)
+  }
+
   return code
+}
+
+/**
+ * Truncate string after the first complete JSON structure (array or object)
+ * This removes any trailing content like [done], extra text, etc.
+ */
+function truncateAfterCompleteJSON(text: string): string {
+  text = text.trim()
+  if (!text) return text
+
+  // Determine if it's an array or object
+  const firstChar = text[0]
+  if (firstChar !== '[' && firstChar !== '{') {
+    return text // Not JSON, return as-is
+  }
+
+  let depth = 0
+  let inString = false
+  let escapeNext = false
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+
+    if (escapeNext) {
+      escapeNext = false
+      continue
+    }
+
+    if (char === '\\' && inString) {
+      escapeNext = true
+      continue
+    }
+
+    if (char === '"' && !escapeNext) {
+      inString = !inString
+      continue
+    }
+
+    if (inString) continue
+
+    if (char === '[' || char === '{') {
+      depth++
+    } else if (char === ']' || char === '}') {
+      depth--
+      if (depth === 0) {
+        // Found the end of the complete JSON structure
+        return text.substring(0, i + 1).trim()
+      }
+    }
+  }
+
+  // If we didn't find a complete structure, return the whole text
+  return text
 }

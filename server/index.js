@@ -886,6 +886,11 @@ app.post('/api/auth/validate-ai-config', authenticateToken, async (req, res) => 
 
   try {
     const url = `${baseUrl}/chat/completions`;
+
+    // Set timeout for validation (30 seconds should be enough)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30 * 1000); // 30 seconds
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -896,8 +901,11 @@ app.post('/api/auth/validate-ai-config', authenticateToken, async (req, res) => 
         model: modelId,
         messages: [{ role: 'user', content: 'Hi' }],
         max_tokens: 1
-      })
+      }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     const contentType = response.headers.get('content-type');
 
@@ -924,6 +932,12 @@ app.post('/api/auth/validate-ai-config', authenticateToken, async (req, res) => 
     res.json({ valid: true });
   } catch (error) {
     console.error('Validate AI Config Error:', error);
+
+    // Check if it's a timeout error
+    if (error.name === 'AbortError') {
+      return res.json({ valid: false, error: '验证超时（30秒），请检查网络连接或 API 地址是否正确' });
+    }
+
     res.json({ valid: false, error: `验证失败: ${error.message}` });
   }
 });
@@ -941,12 +955,20 @@ app.post('/api/ai/models', optionalAuthenticateToken, async (req, res) => {
 
   try {
     const url = `${baseUrl}/models`;
+
+    // Set timeout for fetching models (30 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30 * 1000); // 30 seconds
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${apiKey}`
-      }
+      },
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -967,6 +989,12 @@ app.post('/api/ai/models', optionalAuthenticateToken, async (req, res) => {
     res.json({ models });
   } catch (error) {
     console.error('Fetch Models Error:', error);
+
+    // Check if it's a timeout error
+    if (error.name === 'AbortError') {
+      return res.status(504).json({ error: '获取模型列表超时（30秒），请检查网络连接或 API 地址是否正确' });
+    }
+
     res.status(500).json({ error: `获取模型列表失败: ${error.message}` });
   }
 });
@@ -1434,71 +1462,96 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
       return res.status(500).json({ error: 'AI_API_KEY not configured' });
     }
 
-    const response = await fetch(`${apiBaseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: modelId,
-        messages: req.body.messages,
-        stream: req.body.stream
-      })
-    });
+    // Set timeout for AI requests (5 minutes for long-running models)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 minutes
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      if (debug) {
-        console.error('[AI Service] AI Provider Error:', errorText);
-      }
-      return res.status(502).json({ error: `AI Provider Error: ${errorText}` });
-    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: modelId,
+          messages: req.body.messages,
+          stream: req.body.stream
+        }),
+        signal: controller.signal
+      });
 
-    if (req.body.stream) {
-      if (debug) {
-        console.log('[AI Service] Starting stream response');
-      }
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
+      clearTimeout(timeoutId);
 
-      try {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          res.write(chunk);
+      if (!response.ok) {
+        const errorText = await response.text();
+        if (debug) {
+          console.error('[AI Service] AI Provider Error:', errorText);
         }
+        return res.status(502).json({ error: `AI Provider Error: ${errorText}` });
+      }
 
+      if (req.body.stream) {
+        if (debug) {
+          console.log('[AI Service] Starting stream response');
+        }
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        try {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            res.write(chunk);
+          }
+
+          if (debug) {
+            const duration = Date.now() - startTime;
+            console.log(`[AI Service] Stream response completed. Duration: ${duration}ms`);
+          }
+
+          res.end();
+        } catch (streamError) {
+          console.error('Stream processing error:', streamError);
+          // 流式传输过程中出错，只能结束响应，无法再发送错误信息
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Stream processing error' });
+          } else {
+            res.end();
+          }
+        }
+      } else {
+        const data = await response.json();
         if (debug) {
           const duration = Date.now() - startTime;
-          console.log(`[AI Service] Stream response completed. Duration: ${duration}ms`);
-        }
-
-        res.end();
-      } catch (streamError) {
-        console.error('Stream processing error:', streamError);
-        // 流式传输过程中出错，只能结束响应，无法再发送错误信息
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Stream processing error' });
+          console.log(`[AI Service] AI Response completed. (Duration: ${duration}ms):`, JSON.stringify(data));
         } else {
-          res.end();
+          console.log(`[AI Service] AI Response completed. Duration: ${duration}ms:`);
+        }
+        const content = data.choices?.[0]?.message?.content || '';
+        res.json({ content });
+      }
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+
+      // Check if it's a timeout error
+      if (fetchError.name === 'AbortError') {
+        console.error('Chat API Timeout Error: Request exceeded 5 minutes');
+        if (!res.headersSent) {
+          return res.status(504).json({ error: 'AI 请求超时（5分钟），请检查网络连接或稍后重试' });
         }
       }
-    } else {
-      const data = await response.json();
-      if (debug) {
-        const duration = Date.now() - startTime;
-        console.log(`[AI Service] AI Response completed. (Duration: ${duration}ms):`, JSON.stringify(data));
-      } else {
-        console.log(`[AI Service] AI Response completed. Duration: ${duration}ms:`);
+
+      console.error('Chat API Error:', fetchError);
+      // 检查是否已经发送响应头，避免重复发送
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal Server Error' });
       }
-      const content = data.choices?.[0]?.message?.content || '';
-      res.json({ content });
     }
   } catch (error) {
     console.error('Chat API Error:', error);
