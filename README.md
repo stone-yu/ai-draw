@@ -90,13 +90,56 @@ pnpm run dev:backend    # 仅 Wrangler Pages (http://localhost:8787)
 - **本地存储**：Dexie.js (IndexedDB)
 - **图标库**：Lucide React
 
-### 支持的 AI 服务
+## 支持的 AI 服务
 
 | 服务商 | AI_PROVIDER | AI_BASE_URL | 推荐模型 |
 |--------|-------------|-------------|----------|
 | OpenAI | openai | https://api.openai.com/v1 | gpt-5 |
 | Anthropic | anthropic | https://api.anthropic.com/v1 | claude-sonnet-4-5 |
 | 其他兼容服务 | openai | 自定义 URL | - |
+
+
+## 问题反馈
+您的反馈对我们非常重要。如果您在使用过程中遇到任何问题，或者有任何功能建议，欢迎通过以下方式联系我们。
+<div align="center">
+  <table style="border: none;">
+    <tr>
+      <td align="center" style="border: none;">
+        <img src="./public/online-contract.png" width="200" alt="WeChat Pay" /><br>
+      </td>
+      <td width="50" style="border: none;"></td> <td align="center" style="border: none;">
+       <a href="https://github.com/stone-yu/ai-draw/issues" target="_blank">
+          <img src="./public/github-issue.png" width="200" alt="AliPay" />
+       </a><br>
+      </td>
+    </tr>
+  </table>
+</div>
+
+## ☕ 请作者喝杯咖啡
+
+如果觉得 AI Draw 对您有帮助，欢迎打赏支持后续开发与维护！
+
+<div align="center">
+  <table style="border: none;">
+    <tr>
+      <td align="center" style="border: none;">
+        <img src="./public/wechart-pay.png" width="200" alt="WeChat Pay" /><br>
+        <strong>微信</strong>
+      </td>
+      <td width="50" style="border: none;"></td> <td align="center" style="border: none;">
+        <img src="./public/ali-pay.png" width="200" alt="AliPay" /><br>
+        <strong>支付宝</strong>
+      </td>
+    </tr>
+  </table>
+
+  <p>感谢您的支持！您的鼓励是我更新的最大动力。</p>
+</div>
+
+## 📈 Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=stone-yu/ai-draw&type=Date&t=new)](https://www.star-history.com/#stone-yu/ai-draw&type=date&legend=top-left)
 
 
 ## 开源协议

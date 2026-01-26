@@ -1,6 +1,7 @@
 import {Link, useLocation} from 'react-router-dom'
-import {Book, ChevronLeft, History, MessageSquare} from 'lucide-react'
+import {Book, ChevronLeft, History, MessageSquare, Heart, Smartphone, CreditCard} from 'lucide-react'
 import {AppHeader} from '@/components/layout/AppHeader'
+import {useState} from 'react'
 
 interface DocLayoutProps {
   children: React.ReactNode
@@ -9,6 +10,7 @@ interface DocLayoutProps {
 
 export function DocLayout({ children, title }: DocLayoutProps) {
   const location = useLocation()
+  const [showQRCode, setShowQRCode] = useState<'wechat' | 'alipay' | null>(null)
 
   const menuItems = [
     { icon: Book, label: '使用手册', path: '/docs/manual' },
@@ -45,6 +47,46 @@ export function DocLayout({ children, title }: DocLayoutProps) {
                 </Link>
               )
             })}
+
+            {/* Support Section */}
+            <div className="mt-8 pt-6 border-t border-slate-200">
+              <div className="px-3 mb-3 flex items-center gap-1.5">
+                <Heart className="h-3.5 w-3.5 text-rose-400" />
+                <h3 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">支持和打赏</h3>
+              </div>
+              <p className="px-5 text-xs text-slate-400 leading-relaxed mb-3">
+                感谢支持开源，您的打赏将用于项目的持续开发和维护。
+              </p>
+
+              <div className="px-3 space-y-2">
+                <button
+                  onClick={() => setShowQRCode(showQRCode === 'wechat' ? null : 'wechat')}
+                  className="w-full flex items-center gap-2 text-left text-xs text-slate-500 hover:text-slate-700 transition-colors py-1.5 px-2 rounded hover:bg-slate-50"
+                >
+                  <Smartphone className="h-3.5 w-3.5 text-slate-400" />
+                  微信赞赏
+                </button>
+                <button
+                  onClick={() => setShowQRCode(showQRCode === 'alipay' ? null : 'alipay')}
+                  className="w-full flex items-center gap-2 text-left text-xs text-slate-500 hover:text-slate-700 transition-colors py-1.5 px-2 rounded hover:bg-slate-50"
+                >
+                  <CreditCard className="h-3.5 w-3.5 text-slate-400" />
+                  支付宝赞赏
+                </button>
+                {showQRCode && (
+                  <div className="mt-3 p-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+                    <img
+                      src={showQRCode === 'wechat' ? '/wechart-pay.png' : '/ali-pay.png'}
+                      alt={showQRCode === 'wechat' ? '微信赞赏码' : '支付宝赞赏码'}
+                      className="w-full h-auto rounded"
+                    />
+                    <p className="text-center text-xs text-slate-400 mt-2">
+                      {showQRCode === 'wechat' ? '微信扫码' : '支付宝扫码'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </aside>
 
