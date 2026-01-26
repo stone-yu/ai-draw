@@ -105,11 +105,11 @@ pnpm run dev:backend    # 仅 Wrangler Pages (http://localhost:8787)
   <table style="border: none;">
     <tr>
       <td align="center" style="border: none;">
-        <img src="./public/online-contract.png" width="200" alt="WeChat Pay" /><br>
+        <img src="./public/online-contract.png" width="250" alt="WeChat Pay" /><br>
       </td>
       <td width="50" style="border: none;"></td> <td align="center" style="border: none;">
        <a href="https://github.com/stone-yu/ai-draw/issues" target="_blank">
-          <img src="./public/github-issue.png" width="200" alt="AliPay" />
+          <img src="./public/github-issue.png" width="250" alt="AliPay" />
        </a><br>
       </td>
     </tr>
