@@ -101,15 +101,25 @@ pnpm run dev:backend    # 仅 Wrangler Pages (http://localhost:8787)
 
 ## 问题反馈
 您的反馈对我们非常重要。如果您在使用过程中遇到任何问题，或者有任何功能建议，欢迎通过以下方式联系我们。
-<figure>
-  <img src="./public/online-contract.png" width="45%"/>
-  <img src="./public/github-issue.png" width="45%"/>
-</figure>
-
+<div align="center">
+  <table style="border: none;">
+    <tr>
+      <td align="center" style="border: none;">
+        <img src="./public/online-contract.png" width="200" alt="WeChat Pay" /><br>
+      </td>
+      <td width="50" style="border: none;"></td> <td align="center" style="border: none;">
+       <a href="https://github.com/stone-yu/ai-draw/issues" target="_blank">
+          <img src="./public/github-issue.png" width="200" alt="AliPay" />
+       </a><br>
+      </td>
+    </tr>
+  </table>
+</div>
 
 ## ☕ 请作者喝杯咖啡
 
 如果觉得 AI Draw 对您有帮助，欢迎打赏支持后续开发与维护！
+
 <div align="center">
   <table style="border: none;">
     <tr>
