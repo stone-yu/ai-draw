@@ -66,8 +66,8 @@ export function AdminPage() {
     const loadI18nTexts = async () => {
       try {
         const settings = await authService.getSystemSettings()
-        if (settings.system?.i18nTexts) {
-          setI18nTexts(settings.system.i18nTexts)
+        if (settings.system && 'i18nTexts' in settings.system) {
+          setI18nTexts((settings.system as any).i18nTexts)
         }
       } catch {
         // Silently fail, use defaults
@@ -909,8 +909,8 @@ function I18nSettings() {
   const loadSettings = async () => {
     try {
       const settings = await authService.getSystemSettings()
-      if (settings.system?.i18nTexts) {
-        setTexts(settings.system.i18nTexts)
+      if (settings.system && 'i18nTexts' in settings.system) {
+        setTexts((settings.system as any).i18nTexts)
       }
     } catch {
       showError('加载多语言设置失败')
@@ -924,7 +924,7 @@ function I18nSettings() {
         system: {
           i18nTexts: texts
         }
-      })
+      } as any)
       setGlobalI18nTexts(texts)
       success('多语言设置已保存')
     } catch {

@@ -1,6 +1,4 @@
-import type {Translation} from './zh'
-
-export const en: Translation = {
+export const en = {
   common: {
     confirm: 'Confirm',
     cancel: 'Cancel',
@@ -217,5 +215,5 @@ export const en: Translation = {
     unauthorized: 'Unauthorized',
     goBack: 'Go Back Home',
   },
-}
+} as const
 
