@@ -19,6 +19,8 @@ export interface SystemSettings {
     defaultEngine?: EngineType
     defaultModelPrompt?: string
     logoColor?: string
+    useLocalDrawio?: boolean
+    drawioBaseUrl?: string
     notifications?: {
       homepage?: string
       homepageEnabled?: boolean
@@ -382,6 +384,19 @@ export const authService = {
     return await response.json()
   },
 
+  async updateLocalUserNickname(userId: string, nickname: string) {
+    const response = await fetch(`/api/admin/local-users/${userId}/nickname`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeader()
+      },
+      body: JSON.stringify({ nickname })
+    })
+    if (!response.ok) throw new Error('Failed to update local user nickname')
+    return await response.json()
+  },
+
   async getChatLogs(params: { userId?: string, startDate?: string, endDate?: string, page?: number, pageSize?: number }) {
     const query = new URLSearchParams(params as any).toString()
     const response = await fetch(`/api/admin/logs/chat?${query}`, {
@@ -397,6 +412,24 @@ export const authService = {
       headers: this.getAuthHeader()
     })
     if (!response.ok) throw new Error('Failed to fetch file logs')
+    return await response.json()
+  },
+
+  async getChatStatsByDate(params?: { userId?: string }): Promise<Array<{ date: string, count: number }>> {
+    const query = params ? new URLSearchParams(params as any).toString() : ''
+    const response = await fetch(`/api/admin/stats/chat-by-date${query ? `?${query}` : ''}`, {
+      headers: this.getAuthHeader()
+    })
+    if (!response.ok) throw new Error('Failed to fetch chat stats')
+    return await response.json()
+  },
+
+  async getFileStatsByDate(params?: { userId?: string }): Promise<Array<{ date: string, count: number }>> {
+    const query = params ? new URLSearchParams(params as any).toString() : ''
+    const response = await fetch(`/api/admin/stats/file-by-date${query ? `?${query}` : ''}`, {
+      headers: this.getAuthHeader()
+    })
+    if (!response.ok) throw new Error('Failed to fetch file stats')
     return await response.json()
   },
 

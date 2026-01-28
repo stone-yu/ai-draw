@@ -1,11 +1,11 @@
 import {forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState} from 'react'
-import type {DrawIoEmbedRef, EventAutoSave, EventExport, EventSave} from 'react-drawio'
-import {DrawIoEmbed} from 'react-drawio'
+import {DrawIoEmbed, type DrawIoEmbedRef, type EventAutoSave, type EventExport, type EventSave} from 'react-drawio'
 import {cn} from '@/lib/utils'
 import {Button} from '@/components/ui/Button'
 import Editor from '@monaco-editor/react'
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,} from '@/components/ui/Tooltip'
 import {Check, Copy, Play, Undo2, X} from 'lucide-react'
+import {useSystemStore} from '@/stores/systemStore'
 
 type ExportFormat = 'svg' | 'png'
 
@@ -31,10 +31,10 @@ export interface DrawioEditorRef {
   getThumbnail: () => Promise<string>
 }
 
-const DRAWIO_BASE_URL = import.meta.env.VITE_DRAWIO_BASE_URL || 'https://embed.diagrams.net'
-
 export const DrawioEditor = forwardRef<DrawioEditorRef, DrawioEditorProps>(
   function DrawioEditor({ data, onChange, onExport, className, darkMode: _darkMode = false, ui = 'min' }, ref) {
+    const drawioConfig = useSystemStore((state) => state.drawioConfig)
+    const language = useSystemStore((state) => state.language)
     const drawioRef = useRef<DrawIoEmbedRef | null>(null)
     const [isReady, setIsReady] = useState(false)
     const [showCodePanel, setShowCodePanel] = useState(false)
@@ -42,6 +42,14 @@ export const DrawioEditor = forwardRef<DrawioEditorRef, DrawioEditorProps>(
     const [editedCode, setEditedCode] = useState(data)
     const [hasChanges, setHasChanges] = useState(false)
     const lastSavedXmlRef = useRef<string | null>(null)
+
+    // 动态计算 Draw.io 的 base URL
+    const drawioBaseUrl = drawioConfig.useLocalDrawio && drawioConfig.drawioBaseUrl
+      ? drawioConfig.drawioBaseUrl
+      : (import.meta.env.VITE_DRAWIO_BASE_URL || 'https://embed.diagrams.net')
+
+    // 将语言代码映射到 Draw.io 支持的语言代码
+    const drawioLang = language === 'zh' ? 'zh' : 'en'
 
     // 使用 ref 来跟踪导出请求，避免状态更新的时序问题
     const saveResolverRef = useRef<{
@@ -288,7 +296,7 @@ export const DrawioEditor = forwardRef<DrawioEditorRef, DrawioEditorProps>(
         <div className={cn('relative h-full w-full', className)}>
           <DrawIoEmbed
             ref={drawioRef}
-            baseUrl={DRAWIO_BASE_URL}
+            baseUrl={drawioBaseUrl}
             onLoad={handleLoad}
             onAutoSave={handleAutoSave}
             onExport={handleExportCallback}
@@ -305,7 +313,8 @@ export const DrawioEditor = forwardRef<DrawioEditorRef, DrawioEditorProps>(
               libraries: false,
               saveAndExit: false,
               noExitBtn: true,
-              noSaveBtn: true
+              noSaveBtn: true,
+              lang: drawioLang
             }}
 
           />

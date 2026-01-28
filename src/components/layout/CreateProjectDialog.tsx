@@ -29,7 +29,9 @@ interface CreateProjectDialogProps {
 export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
   const navigate = useNavigate()
   const defaultEngine = useSystemStore((state) => state.defaultEngine)
-  const [title, setTitle] = useState('未命名')
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
+  const [title, setTitle] = useState(i18nTexts.dialogUntitled[language])
   const [engine, setEngine] = useState<EngineType>(defaultEngine)
   const [groupId, setGroupId] = useState<string>('uncategorized')
   const [groups, setGroups] = useState<Group[]>([])
@@ -62,7 +64,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
         groupId: groupId === 'uncategorized' ? undefined : groupId,
       })
       onOpenChange(false)
-      setTitle('未命名')
+      setTitle(i18nTexts.dialogUntitled[language])
       setGroupId('uncategorized')
       navigate(`/editor/${project.id}`)
     } catch (error) {
@@ -74,7 +76,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
-      setTitle('未命名')
+      setTitle(i18nTexts.dialogUntitled[language])
       setEngine(defaultEngine)
       setGroupId('uncategorized')
     }
@@ -85,13 +87,13 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="rounded-2xl">
         <DialogHeader>
-          <DialogTitle>新建文件</DialogTitle>
+          <DialogTitle>{i18nTexts.dialogNewFile[language]}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
-            <label className="mb-2 block text-sm font-medium">文件名称</label>
+            <label className="mb-2 block text-sm font-medium">{i18nTexts.dialogFileName[language]}</label>
             <Input
-              placeholder="请输入文件名称"
+              placeholder={i18nTexts.dialogFileNamePlaceholder[language]}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="rounded-xl"
@@ -99,13 +101,13 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">分组</label>
+            <label className="mb-2 block text-sm font-medium">{i18nTexts.dialogGroup[language]}</label>
             <Select value={groupId} onValueChange={setGroupId}>
               <SelectTrigger className="w-full rounded-xl">
-                <SelectValue placeholder="选择分组" />
+                <SelectValue placeholder={i18nTexts.dialogSelectGroup[language]} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="uncategorized">未分组</SelectItem>
+                <SelectItem value="uncategorized">{i18nTexts.projectsUncategorized[language]}</SelectItem>
                 {groups.map((group) => (
                   <SelectItem key={group.id} value={group.id}>
                     {group.name}
@@ -116,7 +118,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">引擎</label>
+            <label className="mb-2 block text-sm font-medium">{i18nTexts.dialogEngine[language]}</label>
             <div className="rounded-xl border border-border bg-muted/30 p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -126,7 +128,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
                 </div>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                如需使用其他引擎，请在首页左上角或系统设置中进行切换。
+                {i18nTexts.dialogEngineTip[language]}
               </p>
             </div>
           </div>
@@ -138,14 +140,14 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
             onClick={() => onOpenChange(false)}
             className="rounded-full"
           >
-            取消
+            {i18nTexts.dialogCancel[language]}
           </Button>
           <Button
             onClick={handleCreate}
             disabled={isCreating}
             className="rounded-full bg-primary text-surface hover:bg-primary/90"
           >
-            {isCreating ? '创建中...' : '创建'}
+            {isCreating ? i18nTexts.dialogCreating[language] : i18nTexts.dialogCreate[language]}
           </Button>
         </DialogFooter>
       </DialogContent>

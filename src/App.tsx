@@ -26,6 +26,7 @@ function App() {
   const setDefaultEngine = useSystemStore((state) => state.setDefaultEngine)
   const setDefaultModelPrompt = useSystemStore((state) => state.setDefaultModelPrompt)
   const setNotifications = useSystemStore((state) => state.setNotifications)
+  const setDrawioConfig = useSystemStore((state) => state.setDrawioConfig)
 
   // Load system settings on app startup
   useEffect(() => {
@@ -38,6 +39,12 @@ function App() {
           if (settings.system.defaultEngine) setDefaultEngine(settings.system.defaultEngine)
           if (settings.system.defaultModelPrompt) setDefaultModelPrompt(settings.system.defaultModelPrompt)
           if (settings.system.notifications) setNotifications(settings.system.notifications)
+          if (settings.system.useLocalDrawio !== undefined && settings.system.drawioBaseUrl !== undefined) {
+            setDrawioConfig({
+              useLocalDrawio: settings.system.useLocalDrawio,
+              drawioBaseUrl: settings.system.drawioBaseUrl
+            })
+          }
         }
       } catch (error) {
         // Silently fail if settings can't be loaded (e.g., not logged in or server unavailable)
@@ -45,7 +52,7 @@ function App() {
       }
     }
     loadSystemSettings()
-  }, [setLogoColor, setSystemName, setDefaultEngine, setDefaultModelPrompt, setNotifications])
+  }, [setLogoColor, setSystemName, setDefaultEngine, setDefaultModelPrompt, setNotifications, setDrawioConfig])
 
   // Update favicon when logo color changes
   useEffect(() => {

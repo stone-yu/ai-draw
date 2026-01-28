@@ -139,6 +139,14 @@ export async function initDB() {
     // Column already exists, ignore error
   }
 
+  // Add nickname column to local_users if it doesn't exist
+  try {
+    await db.exec('ALTER TABLE local_users ADD COLUMN nickname TEXT');
+    console.log('[DB] Added nickname column to local_users table');
+  } catch (e) {
+    // Column already exists, ignore error
+  }
+
   return db;
 }
 

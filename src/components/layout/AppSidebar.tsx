@@ -34,6 +34,8 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
   const isCollapsed = useSystemStore((state) => state.sidebarCollapsed)
   const setSidebarCollapsed = useSystemStore((state) => state.setSidebarCollapsed)
   const logoColor = useSystemStore((state) => state.logoColor)
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
   const user = useAuthStore((state) => state.user)
   const { mode, setMode } = useStorageModeStore()
   const [isModeDialogOpen, setIsModeDialogOpen] = useState(false)
@@ -69,7 +71,7 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
               <Logo className="h-6 w-6" style={{ color: 'white' }} />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="right">返回首页</TooltipContent>
+          <TooltipContent side="right">{i18nTexts.btnBackHome[language]}</TooltipContent>
         </Tooltip>
 
         {/* New Project Button */}
@@ -83,10 +85,10 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-dashed border-border bg-background transition-all group-hover:border-primary group-hover:text-primary">
                   <Plus className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
                 </div>
-                {!isCollapsed && <span className="text-[10px] font-medium text-muted-foreground group-hover:text-primary">新建</span>}
+                {!isCollapsed && <span className="text-[10px] font-medium text-muted-foreground group-hover:text-primary">{language === 'zh' ? '新建' : 'New'}</span>}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">新建文件</TooltipContent>
+            <TooltipContent side="right">{i18nTexts.btnNewProject[language]}</TooltipContent>
           </Tooltip>
         )}
 
@@ -97,6 +99,14 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
             if ('adminOnly' in item && item.adminOnly && user?.role !== 'admin') return null
 
             const isActive = location.pathname === item.path
+
+            // Get translated label
+            let label = item.label
+            if (item.path === '/') label = i18nTexts.menuHome[language]
+            else if (item.path === '/projects') label = i18nTexts.menuProjects[language]
+            else if (item.path === '/profile') label = i18nTexts.menuProfile[language]
+            else if (item.path === '/admin') label = i18nTexts.menuAdmin[language]
+            else if (item.path === '/about') label = i18nTexts.menuAbout[language]
 
             return (
               <Tooltip key={index}>
@@ -112,12 +122,12 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
                     <item.icon className={`h-5 w-5 ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`} />
                     {!isCollapsed && (
                       <span className={`text-[10px] font-medium ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'}`}>
-                        {item.label}
+                        {label}
                       </span>
                     )}
                   </button>
                 </TooltipTrigger>
-                {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
+                {isCollapsed && <TooltipContent side="right">{label}</TooltipContent>}
               </Tooltip>
             )
           })}
@@ -143,13 +153,13 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
                 </DialogTrigger>
               </TooltipTrigger>
               <TooltipContent side="right">
-                {mode === 'local' ? '本地模式' : '云端模式'}
+                {mode === 'local' ? i18nTexts.localMode[language] : i18nTexts.cloudMode[language]}
               </TooltipContent>
             </Tooltip>
 
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>存储模式切换</DialogTitle>
+                <DialogTitle>{i18nTexts.storageMode[language]}</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 {/* Local Mode Option */}
@@ -160,8 +170,8 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
                   onClick={() => handleModeChange('local')}
                 >
                   <div className="flex items-center gap-2 font-medium text-foreground">
-                    <Database className="h-4 w-4" /> 本地模式
-                    {mode === 'local' && <span className="ml-auto text-xs text-primary">当前使用</span>}
+                    <Database className="h-4 w-4" /> {i18nTexts.localMode[language]}
+                    {mode === 'local' && <span className="ml-auto text-xs text-primary">{language === 'zh' ? '当前使用' : 'Current'}</span>}
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                     所有信息存储在本地，包含AI 密钥，图表文件，适用于数据安全要求比较高的场景。
@@ -176,8 +186,8 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
                   onClick={() => handleModeChange('cloud')}
                 >
                   <div className="flex items-center gap-2 font-medium text-foreground">
-                    <Cloud className="h-4 w-4" /> 云端模式
-                    {mode === 'cloud' && <span className="ml-auto text-xs text-primary">当前使用</span>}
+                    <Cloud className="h-4 w-4" /> {i18nTexts.cloudMode[language]}
+                    {mode === 'cloud' && <span className="ml-auto text-xs text-primary">{language === 'zh' ? '当前使用' : 'Current'}</span>}
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                     需要登录使用，配置信息及图表文件会保存到云端，适合私有部署的用户，这样切换电脑或浏览器，数据和配置保持同步。
@@ -212,7 +222,7 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
                 {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">{isCollapsed ? "展开菜单" : "折叠菜单"}</TooltipContent>
+            <TooltipContent side="right">{isCollapsed ? i18nTexts.expandMenu[language] : i18nTexts.collapseMenu[language]}</TooltipContent>
           </Tooltip>
 
           {/* User Avatar & Actions - Always show for easy login access */}
@@ -244,17 +254,17 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
                   </div>
                   <DropdownMenuItem onClick={() => navigate('/profile')}>
                     <User className="mr-2 h-4 w-4" />
-                    <span>个人信息</span>
+                    <span>{i18nTexts.userProfile[language]}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600">
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>退出登录</span>
+                    <span>{i18nTexts.userLogout[language]}</span>
                   </DropdownMenuItem>
                 </>
               ) : (
                 <DropdownMenuItem onClick={() => navigate('/login')}>
                   <User className="mr-2 h-4 w-4" />
-                  <span>登录 / 注册</span>
+                  <span>{i18nTexts.userLogin[language]}</span>
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>

@@ -428,9 +428,23 @@ app.get('/api/admin/local-users', authenticateToken, isAdmin, async (req, res) =
   res.json(rows.map(u => ({
     id: u.id,
     ipAddress: u.ip_address,
+    nickname: u.nickname,
     firstSeenAt: u.first_seen_at,
     lastSeenAt: u.last_seen_at
   })));
+});
+
+app.put('/api/admin/local-users/:id/nickname', authenticateToken, isAdmin, async (req, res) => {
+  const { nickname } = req.body;
+  const db = getDB();
+
+  const user = await db.get('SELECT id FROM local_users WHERE id = ?', req.params.id);
+  if (!user) {
+    return res.status(404).json({ error: 'Local user not found' });
+  }
+
+  await db.run('UPDATE local_users SET nickname = ? WHERE id = ?', nickname || null, req.params.id);
+  res.json({ message: 'Nickname updated' });
 });
 
 app.get('/api/admin/logs/chat', authenticateToken, isAdmin, async (req, res) => {
@@ -523,6 +537,68 @@ app.get('/api/admin/logs/file', authenticateToken, isAdmin, async (req, res) => 
     page: pageNum,
     pageSize: pageSizeNum
   });
+});
+
+// Get chat statistics grouped by date (last 7 days)
+app.get('/api/admin/stats/chat-by-date', authenticateToken, isAdmin, async (req, res) => {
+  const { userId } = req.query;
+  const params = [];
+
+  // Get date 7 days ago
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const startDate = sevenDaysAgo.toISOString().split('T')[0];
+
+  let query = `
+    SELECT DATE(timestamp) as date, COUNT(*) as count
+    FROM ai_chat_logs
+    WHERE DATE(timestamp) >= ?
+  `;
+  params.push(startDate);
+
+  if (userId) {
+    query += ' AND user_id = ?';
+    params.push(userId);
+  }
+
+  query += ' GROUP BY DATE(timestamp) ORDER BY date ASC';
+
+  const rows = await getDB().all(query, ...params);
+  res.json(rows.map(r => ({
+    date: r.date,
+    count: r.count
+  })));
+});
+
+// Get file creation statistics grouped by date (last 7 days)
+app.get('/api/admin/stats/file-by-date', authenticateToken, isAdmin, async (req, res) => {
+  const { userId } = req.query;
+  const params = [];
+
+  // Get date 7 days ago
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const startDate = sevenDaysAgo.toISOString().split('T')[0];
+
+  let query = `
+    SELECT DATE(timestamp) as date, COUNT(*) as count
+    FROM file_creation_logs
+    WHERE DATE(timestamp) >= ?
+  `;
+  params.push(startDate);
+
+  if (userId) {
+    query += ' AND user_id = ?';
+    params.push(userId);
+  }
+
+  query += ' GROUP BY DATE(timestamp) ORDER BY date ASC';
+
+  const rows = await getDB().all(query, ...params);
+  res.json(rows.map(r => ({
+    date: r.date,
+    count: r.count
+  })));
 });
 
 app.put('/api/admin/users/:id/ai-config', authenticateToken, isAdmin, async (req, res) => {

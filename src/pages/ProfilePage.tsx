@@ -140,6 +140,8 @@ function UserAIConfigSection({
   const [showKey, setShowKey] = useState(false)
   const { success, error: showError } = useToast()
   const defaultModelPrompt = useSystemStore((state) => state.defaultModelPrompt)
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
   const [tempModelId, setTempModelId] = useState('')
   const storageMode = useStorageModeStore((state) => state.mode)
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
@@ -444,17 +446,17 @@ function UserAIConfigSection({
 
       {/* Right Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {selectedId === 'system' ? (
-          <div className="flex-1 p-8 flex flex-col items-center justify-center text-center">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-              <Server className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-xl font-medium text-primary mb-2">系统默认模型</h3>
-            <p className="text-muted-foreground max-w-md mb-8">
-              {defaultModelPrompt}
-            </p>
-          </div>
-        ) : (
+              {selectedId === 'system' ? (
+                <div className="flex-1 p-8 flex flex-col items-center justify-center text-center">
+                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                    <Server className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-medium text-primary mb-2">{i18nTexts.profileServerDefault[language]}</h3>
+                  <p className="text-muted-foreground max-w-md mb-8">
+                    {language === 'zh' ? defaultModelPrompt : i18nTexts.profileSystemDefaultHint[language]}
+                  </p>
+                </div>
+              ) : (
           <div className="flex-1 flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-border">
@@ -484,12 +486,12 @@ function UserAIConfigSection({
             </div>
 
             {/* Form */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {storageMode === 'local' && (
-                <div className="mb-4 px-4 py-3 rounded-lg bg-green-500/10 border border-green-500/20 text-sm text-green-600">
-                  目前是本地模式，个人配置的AI模型密钥信息，只存储在本地浏览器，请放心配置
-                </div>
-              )}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {storageMode === 'local' && (
+            <div className="mb-4 px-4 py-3 rounded-lg bg-green-500/10 border border-green-500/20 text-sm text-green-600">
+              {i18nTexts.profileLocalModeHint[language]}
+            </div>
+          )}
               <div>
                 <label className="mb-2 block text-sm font-medium text-muted">API Key</label>
                 <div className="flex gap-2">
@@ -629,6 +631,8 @@ function ModelSelectorDialog({ open, onOpenChange, apiKey, baseUrl, existingMode
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const { error: showError } = useToast()
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
 
   useEffect(() => {
     if (open) {
@@ -764,12 +768,12 @@ function ModelSelectorDialog({ open, onOpenChange, apiKey, baseUrl, existingMode
           <>
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="搜索模型"
-                className="pl-10"
-              />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={i18nTexts.profileSearchModel[language]}
+              className="pl-10"
+            />
             </div>
 
             <div className="max-h-[400px] overflow-y-auto border rounded-lg">
@@ -877,6 +881,8 @@ function ChangePasswordDialog({ open, onOpenChange, onSave }: ChangePasswordDial
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const { error: showError } = useToast()
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -918,7 +924,7 @@ function ChangePasswordDialog({ open, onOpenChange, onSave }: ChangePasswordDial
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-2xl sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>修改登录密码</DialogTitle>
+          <DialogTitle>{i18nTexts.profileChangePassword[language]}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="relative">
@@ -926,7 +932,7 @@ function ChangePasswordDialog({ open, onOpenChange, onSave }: ChangePasswordDial
               type={showCurrent ? 'text' : 'password'}
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="当前密码"
+              placeholder={i18nTexts.profileOldPassword[language]}
               className="pr-10"
             />
             <button
@@ -943,7 +949,7 @@ function ChangePasswordDialog({ open, onOpenChange, onSave }: ChangePasswordDial
               type={showNew ? 'text' : 'password'}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="新密码"
+              placeholder={i18nTexts.profileNewPassword[language]}
               className="pr-10"
             />
             <button
@@ -959,15 +965,15 @@ function ChangePasswordDialog({ open, onOpenChange, onSave }: ChangePasswordDial
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="确认新密码"
+            placeholder={i18nTexts.profileConfirmPassword[language]}
           />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full">
-            取消
+            {i18nTexts.profileCancel[language]}
           </Button>
           <Button onClick={handleSubmit} disabled={loading} className="rounded-full">
-            {loading ? '保存中...' : '确认修改'}
+            {loading ? `${i18nTexts.profileSave[language]}...` : i18nTexts.profileConfirm[language]}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -977,6 +983,8 @@ function ChangePasswordDialog({ open, onOpenChange, onSave }: ChangePasswordDial
 
 export function ProfilePage() {
   const storageMode = useStorageModeStore((state) => state.mode)
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
   const [activeTab, setActiveTab] = useState(storageMode === 'local' ? 'settings' : 'profile')
   const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
@@ -1049,7 +1057,7 @@ export function ProfilePage() {
                       }`}
                     >
                       <User className="h-4 w-4" />
-                      <span>个人信息</span>
+                      <span>{i18nTexts.profileUserInfo[language]}</span>
                     </button>
                   )}
                   <button
@@ -1061,7 +1069,7 @@ export function ProfilePage() {
                     }`}
                   >
                     <Sparkles className="h-4 w-4" />
-                    <span>AI模型配置</span>
+                    <span>{i18nTexts.profileAIConfig[language]}</span>
                   </button>
                 </nav>
               </div>
@@ -1070,23 +1078,23 @@ export function ProfilePage() {
               <div className="flex-1 bg-surface p-6 overflow-y-auto">
                 {activeTab === 'profile' && (
                   <>
-                    <h2 className="mb-6 text-lg font-medium text-primary">用户信息</h2>
+                    <h2 className="mb-6 text-lg font-medium text-primary">{i18nTexts.profileUserInfo[language]}</h2>
                     <div className="space-y-6">
                       <div>
-                        <label className="text-sm font-medium text-muted">用户名</label>
+                        <label className="text-sm font-medium text-muted">{i18nTexts.profileUsername[language]}</label>
                         <div className="mt-1 text-lg font-medium text-primary">{user?.username}</div>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-muted">昵称</label>
+                        <label className="text-sm font-medium text-muted">{i18nTexts.profileNickname[language]}</label>
                         <div className="mt-1 flex items-center gap-2">
                           <Input
                             value={nickname}
                             onChange={(e) => setNickname(e.target.value)}
                             className="max-w-xs"
-                            placeholder="请输入昵称"
+                            placeholder={i18nTexts.profileNicknamePlaceholder[language]}
                           />
                           <Button onClick={handleNicknameUpdate} size="sm">
-                            保存
+                            {i18nTexts.profileSave[language]}
                           </Button>
                         </div>
                       </div>
@@ -1127,7 +1135,7 @@ export function ProfilePage() {
                       </div>
                       <div>
                         <Button onClick={() => setIsChangePasswordDialogOpen(true)}>
-                          修改登录密码
+                          {i18nTexts.profileChangePassword[language]}
                         </Button>
                       </div>
                     </div>
@@ -1136,7 +1144,7 @@ export function ProfilePage() {
 
                 {activeTab === 'settings' && (
                   <>
-                    <h2 className="mb-6 text-lg font-medium text-primary">AI 模型配置</h2>
+                    <h2 className="mb-6 text-lg font-medium text-primary">{i18nTexts.profileAIConfig[language]}</h2>
                     <UserAIConfigSection
                       password={password}
                       setPassword={setPassword}

@@ -24,6 +24,7 @@ import {
   EyeOff,
   FileCode,
   KeyRound,
+  Languages,
   Megaphone,
   Pencil,
   Settings2,
@@ -33,7 +34,7 @@ import {
 } from 'lucide-react'
 import {useNavigate} from 'react-router-dom'
 import {useAuthStore} from '@/stores/authStore'
-import {useSystemStore} from '@/stores/systemStore'
+import {type I18nTexts, useSystemStore} from '@/stores/systemStore'
 import {ENGINES} from '@/constants'
 import type {EngineType} from '@/types'
 import {UsageStatistics} from './AdminUsageStatsPage'
@@ -46,6 +47,9 @@ export function AdminPage() {
   const user = useAuthStore((state) => state.user)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const navigate = useNavigate()
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
+  const setI18nTexts = useSystemStore((state) => state.setI18nTexts)
 
   useEffect(() => {
     if (user && user.role !== 'admin') {
@@ -56,6 +60,21 @@ export function AdminPage() {
   useEffect(() => {
     localStorage.setItem('admin_active_tab', activeTab)
   }, [activeTab])
+
+  useEffect(() => {
+    // Load i18n texts from server
+    const loadI18nTexts = async () => {
+      try {
+        const settings = await authService.getSystemSettings()
+        if (settings.system?.i18nTexts) {
+          setI18nTexts(settings.system.i18nTexts)
+        }
+      } catch {
+        // Silently fail, use defaults
+      }
+    }
+    loadI18nTexts()
+  }, [setI18nTexts])
 
   if (!user || user.role !== 'admin') {
     return null
@@ -79,7 +98,7 @@ export function AdminPage() {
                     }`}
                   >
                     <Users className="h-4 w-4" />
-                    <span>用户管理</span>
+                    <span>{i18nTexts.adminUsers[language]}</span>
                   </button>
                   <button
                     onClick={() => setActiveTab('basic')}
@@ -90,7 +109,7 @@ export function AdminPage() {
                     }`}
                   >
                     <Settings2 className="h-4 w-4" />
-                    <span>基础设置</span>
+                    <span>{i18nTexts.adminBasicSettings[language]}</span>
                   </button>
                   <button
                     onClick={() => setActiveTab('llm')}
@@ -101,7 +120,7 @@ export function AdminPage() {
                     }`}
                   >
                     <Bot className="h-4 w-4" />
-                    <span>全局 LLM 模型</span>
+                    <span>{i18nTexts.adminLLMModel[language]}</span>
                   </button>
                   <button
                     onClick={() => setActiveTab('notifications')}
@@ -112,7 +131,18 @@ export function AdminPage() {
                     }`}
                   >
                     <Megaphone className="h-4 w-4" />
-                    <span>通知设置</span>
+                    <span>{i18nTexts.adminNotifications[language]}</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('i18n')}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      activeTab === 'i18n'
+                        ? 'bg-primary text-surface'
+                        : 'text-muted hover:bg-background hover:text-primary'
+                    }`}
+                  >
+                    <Languages className="h-4 w-4" />
+                    <span>{i18nTexts.adminI18n[language]}</span>
                   </button>
                   <button
                     onClick={() => setActiveTab('examples')}
@@ -123,7 +153,7 @@ export function AdminPage() {
                     }`}
                   >
                     <FileCode className="h-4 w-4" />
-                    <span>示例文件管理</span>
+                    <span>{i18nTexts.adminExamples[language]}</span>
                   </button>
                   <button
                     onClick={() => setActiveTab('stats')}
@@ -134,7 +164,7 @@ export function AdminPage() {
                     }`}
                   >
                     <BarChart3 className="h-4 w-4" />
-                    <span>使用统计</span>
+                    <span>{i18nTexts.adminStats[language]}</span>
                   </button>
                 </nav>
               </div>
@@ -143,42 +173,49 @@ export function AdminPage() {
               <div className="flex-1 bg-surface p-6 overflow-y-auto">
                 {activeTab === 'users' && (
                   <>
-                    <h2 className="mb-6 text-lg font-medium text-primary">用户管理</h2>
+                    <h2 className="mb-6 text-lg font-medium text-primary">{i18nTexts.adminUsers[language]}</h2>
                     <UserManagementTabs />
                   </>
                 )}
 
                 {activeTab === 'basic' && (
                   <>
-                    <h2 className="mb-6 text-lg font-medium text-primary">基础设置</h2>
+                    <h2 className="mb-6 text-lg font-medium text-primary">{i18nTexts.adminBasicSettings[language]}</h2>
                     <BasicSettings />
                   </>
                 )}
 
                 {activeTab === 'llm' && (
                   <>
-                    <h2 className="mb-6 text-lg font-medium text-primary">全局 LLM 模型</h2>
+                    <h2 className="mb-6 text-lg font-medium text-primary">{i18nTexts.adminLLMModel[language]}</h2>
                     <LLMSettings />
                   </>
                 )}
 
                 {activeTab === 'notifications' && (
                   <>
-                    <h2 className="mb-6 text-lg font-medium text-primary">通知设置</h2>
+                    <h2 className="mb-6 text-lg font-medium text-primary">{i18nTexts.adminNotifications[language]}</h2>
                     <NotificationSettings />
+                  </>
+                )}
+
+                {activeTab === 'i18n' && (
+                  <>
+                    <h2 className="mb-6 text-lg font-medium text-primary">{i18nTexts.adminI18n[language]}</h2>
+                    <I18nSettings />
                   </>
                 )}
 
                 {activeTab === 'examples' && (
                   <>
-                    <h2 className="mb-6 text-lg font-medium text-primary">示例文件管理</h2>
+                    <h2 className="mb-6 text-lg font-medium text-primary">{i18nTexts.adminExamples[language]}</h2>
                     <ExampleProjectsManagement />
                   </>
                 )}
 
                 {activeTab === 'stats' && (
                   <>
-                    <h2 className="mb-6 text-lg font-medium text-primary">使用统计</h2>
+                    <h2 className="mb-6 text-lg font-medium text-primary">{i18nTexts.adminStats[language]}</h2>
                     <UsageStatistics />
                   </>
                 )}
@@ -214,6 +251,8 @@ function UserManagement() {
   const [loading, setLoading] = useState(true)
   const { success, error: showError } = useToast()
   const currentUser = useAuthStore((state) => state.user)
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
   const [selectedUserForConfig, setSelectedUserForConfig] = useState<AppUser | null>(null)
   const [selectedUserForPassword, setSelectedUserForPassword] = useState<AppUser | null>(null)
   const [selectedUserForAccessPassword, setSelectedUserForAccessPassword] = useState<AppUser | null>(null)
@@ -315,12 +354,12 @@ function UserManagement() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted">角色:</span>
-                  <select
-                    value={user.role || 'user'}
-                    onChange={(e) => handleRoleChange(user.id, e.target.value as 'user' | 'admin')}
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted">{i18nTexts.adminRole[language]}:</span>
+                    <select
+                      value={user.role || 'user'}
+                      onChange={(e) => handleRoleChange(user.id, e.target.value as 'user' | 'admin')}
                     disabled={user.id === currentUser?.id}
                     className="h-7 rounded-md border border-input bg-background px-2 text-xs"
                   >
@@ -856,6 +895,135 @@ function NotificationSettings() {
   )
 }
 
+function I18nSettings() {
+  const globalI18nTexts = useSystemStore((state) => state.i18nTexts)
+  const [texts, setTexts] = useState<I18nTexts>(globalI18nTexts)
+  const [loading, setLoading] = useState(false)
+  const { success, error: showError } = useToast()
+  const setGlobalI18nTexts = useSystemStore((state) => state.setI18nTexts)
+
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  const loadSettings = async () => {
+    try {
+      const settings = await authService.getSystemSettings()
+      if (settings.system?.i18nTexts) {
+        setTexts(settings.system.i18nTexts)
+      }
+    } catch {
+      showError('加载多语言设置失败')
+    }
+  }
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      await authService.updateSystemSettings({
+        system: {
+          i18nTexts: texts
+        }
+      })
+      setGlobalI18nTexts(texts)
+      success('多语言设置已保存')
+    } catch {
+      showError('保存多语言设置失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleTextChange = (key: keyof I18nTexts, lang: 'zh' | 'en', value: string) => {
+    setTexts(prev => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        [lang]: value
+      }
+    }))
+  }
+
+  const textFields: Array<{key: keyof I18nTexts; label: string}> = [
+    { key: 'menuHome', label: '菜单 - 首页' },
+    { key: 'menuProjects', label: '菜单 - 文件管理' },
+    { key: 'menuProfile', label: '菜单 - 个人设置' },
+    { key: 'menuAdmin', label: '菜单 - 管理后台' },
+    { key: 'menuAbout', label: '菜单 - 关于我们' },
+    { key: 'btnNewProject', label: '按钮 - 新建文件' },
+    { key: 'btnBackHome', label: '按钮 - 返回首页' },
+    { key: 'btnLogout', label: '按钮 - 退出' },
+    { key: 'homeTitle', label: '首页 - 标题' },
+    { key: 'homeSubtitle', label: '首页 - 副标题' },
+    { key: 'homePlaceholder', label: '首页 - 输入框提示' },
+    { key: 'homeUploadFile', label: '首页 - 上传文件' },
+    { key: 'homeAddLink', label: '首页 - 添加链接' },
+    { key: 'homePasteImageTip', label: '首页 - 粘贴图片提示' },
+    { key: 'homeSystemDefault', label: '首页 - 系统默认' },
+    { key: 'homeQuickStart', label: '首页 - 快速开始' },
+    { key: 'homeRecentFiles', label: '首页 - 最近文件' },
+    { key: 'homeUserManual', label: '文档 - 使用手册' },
+    { key: 'homeChangelog', label: '文档 - 更新日志' },
+    { key: 'homeFeedback', label: '文档 - 问题反馈' },
+    { key: 'profileUserInfo', label: '个人设置 - 个人信息' },
+    { key: 'profileAIConfig', label: '个人设置 - AI模型配置' },
+    { key: 'profileSystemDefaultHint', label: '个人设置 - 系统默认提示' },
+    { key: 'userProfile', label: '用户菜单 - 个人信息' },
+    { key: 'userLogout', label: '用户菜单 - 退出登录' },
+    { key: 'userLogin', label: '用户菜单 - 登录注册' },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-lg border border-border bg-card p-4">
+        <p className="text-sm text-muted mb-4">
+          自定义系统各处文本的中英文显示内容，修改后立即生效。
+        </p>
+
+        <div className="space-y-4">
+          {textFields.map(({ key, label }) => (
+            <div key={key} className="grid grid-cols-1 gap-3">
+              <label className="text-sm font-medium text-muted">{label}</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">简体中文</label>
+                  <Input
+                    value={texts[key].zh}
+                    onChange={(e) => handleTextChange(key, 'zh', e.target.value)}
+                    className="rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">English</label>
+                  <Input
+                    value={texts[key].en}
+                    onChange={(e) => handleTextChange(key, 'en', e.target.value)}
+                    className="rounded-xl"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-3 pt-6 mt-6 border-t border-border">
+          <Button onClick={handleSave} disabled={loading} className="rounded-full">
+            {loading ? '保存中...' : '保存配置'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={loadSettings}
+            disabled={loading}
+            className="rounded-full"
+          >
+            重置
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ExampleProjectsManagement() {
   const [projects, setProjects] = useState<ExampleProject[]>([])
   const [loading, setLoading] = useState(true)
@@ -1097,19 +1265,20 @@ function CreateExampleProjectDialog({ open, onOpenChange }: { open: boolean, onO
 }
 
 function BasicSettings() {
-  const [systemName, setSystemName] = useState('')
   const [allowRegister, setAllowRegister] = useState(true)
   const [defaultEngine, setDefaultEngine] = useState<EngineType>('drawio')
-  const [defaultModelPrompt, setDefaultModelPrompt] = useState('')
   const [logoColor, setLogoColorLocal] = useState('#000000')
   const [aiSettings, setAiSettings] = useState<any>({})
+  const [useLocalDrawio, setUseLocalDrawio] = useState(false)
+  const [drawioBaseUrl, setDrawioBaseUrl] = useState('')
 
   const [loading, setLoading] = useState(false)
   const { success, error: showError } = useToast()
-  const setGlobalSystemName = useSystemStore((state) => state.setSystemName)
   const setGlobalDefaultEngine = useSystemStore((state) => state.setDefaultEngine)
-  const setGlobalDefaultModelPrompt = useSystemStore((state) => state.setDefaultModelPrompt)
   const setGlobalLogoColor = useSystemStore((state) => state.setLogoColor)
+  const setGlobalDrawioConfig = useSystemStore((state) => state.setDrawioConfig)
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
 
   useEffect(() => {
     loadSettings()
@@ -1119,24 +1288,24 @@ function BasicSettings() {
     try {
       const settings = await authService.getSystemSettings()
       if (settings.system) {
-        setSystemName(settings.system.name || 'AI Draw')
         setAllowRegister(settings.system.allowRegister !== false)
         setDefaultEngine(settings.system.defaultEngine || 'drawio')
-        setDefaultModelPrompt(settings.system.defaultModelPrompt || '使用服务端配置的模型，此信息管理员可以在系统设置-基础设置里面进行自定义')
         setLogoColorLocal(settings.system.logoColor || '#000000')
+        setUseLocalDrawio(settings.system.useLocalDrawio || false)
+        setDrawioBaseUrl(settings.system.drawioBaseUrl || '')
       } else {
-        setSystemName('AI Draw')
         setAllowRegister(true)
         setDefaultEngine('drawio')
-        setDefaultModelPrompt('使用服务端配置的模型，此信息管理员可以在系统设置-基础设置里面进行自定义')
         setLogoColorLocal('#000000')
+        setUseLocalDrawio(false)
+        setDrawioBaseUrl('')
       }
 
       if (settings.ai) {
         setAiSettings(settings.ai)
       }
     } catch {
-      showError('加载配置失败')
+      showError(i18nTexts.basicLoadFailed[language])
     }
   }
 
@@ -1145,22 +1314,20 @@ function BasicSettings() {
     try {
       await authService.updateSystemSettings({
         system: {
-          name: systemName,
           allowRegister,
           defaultEngine,
-          defaultModelPrompt,
-          logoColor
+          logoColor,
+          useLocalDrawio,
+          drawioBaseUrl
         },
         ai: aiSettings
       })
-      setGlobalSystemName(systemName)
       setGlobalDefaultEngine(defaultEngine)
-      setGlobalDefaultModelPrompt(defaultModelPrompt)
       setGlobalLogoColor(logoColor)
-      document.title = systemName
-      success('基础配置已保存')
+      setGlobalDrawioConfig({ useLocalDrawio, drawioBaseUrl })
+      success(i18nTexts.basicSaveSuccess[language])
     } catch {
-      showError('保存配置失败')
+      showError(i18nTexts.basicSaveFailed[language])
     } finally {
       setLoading(false)
     }
@@ -1169,20 +1336,7 @@ function BasicSettings() {
   return (
     <div className="space-y-4">
       <div>
-        <label className="mb-2 block text-sm font-medium text-muted">系统名称</label>
-        <Input
-          value={systemName}
-          onChange={(e) => setSystemName(e.target.value)}
-          placeholder="AI Draw"
-          className="rounded-xl"
-        />
-        <p className="mt-2 text-xs text-muted">
-          设置系统的显示名称，将显示在浏览器标题、登录页和首页等位置。
-        </p>
-      </div>
-
-      <div>
-        <label className="mb-2 block text-sm font-medium text-muted">默认绘图引擎</label>
+        <label className="mb-2 block text-sm font-medium text-muted">{i18nTexts.adminDefaultEngine[language]}</label>
         <select
           value={defaultEngine}
           onChange={(e) => setDefaultEngine(e.target.value as EngineType)}
@@ -1195,25 +1349,12 @@ function BasicSettings() {
           ))}
         </select>
         <p className="mt-2 text-xs text-muted">
-          设置系统默认的绘图引擎，新用户或重置后将使用此引擎。
+          {i18nTexts.basicDefaultEngineDesc[language]}
         </p>
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-muted">系统默认模型提示信息</label>
-        <Input
-          value={defaultModelPrompt}
-          onChange={(e) => setDefaultModelPrompt(e.target.value)}
-          placeholder="使用服务端配置的模型..."
-          className="rounded-xl"
-        />
-        <p className="mt-2 text-xs text-muted">
-          设置用户在选择系统默认模型时看到的提示信息。
-        </p>
-      </div>
-
-      <div>
-        <label className="mb-2 block text-sm font-medium text-muted">Logo 颜色</label>
+        <label className="mb-2 block text-sm font-medium text-muted">{i18nTexts.adminLogoColor[language]}</label>
         <div className="flex items-center gap-3">
           <input
             type="color"
@@ -1235,7 +1376,7 @@ function BasicSettings() {
           </div>
         </div>
         <p className="mt-2 text-xs text-muted">
-          设置系统 Logo 的主题颜色，将应用到首页、侧边栏等所有 Logo 显示位置。支持十六进制颜色码（如 #000000）。
+          {i18nTexts.basicLogoColorDesc[language]}
         </p>
       </div>
 
@@ -1248,13 +1389,45 @@ function BasicSettings() {
           className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
         />
         <label htmlFor="allowRegister" className="text-sm font-medium text-muted cursor-pointer">
-          开放用户注册
+          {i18nTexts.adminAllowRegister[language]}
         </label>
+      </div>
+
+      <div className="border-t border-border pt-4 mt-4">
+        <h3 className="text-sm font-medium text-muted mb-4">{i18nTexts.basicDrawioConfig[language]}</h3>
+
+        <div className="flex items-center gap-2 mb-4">
+          <input
+            type="checkbox"
+            id="useLocalDrawio"
+            checked={useLocalDrawio}
+            onChange={(e) => setUseLocalDrawio(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+          />
+          <label htmlFor="useLocalDrawio" className="text-sm font-medium text-muted cursor-pointer">
+            {i18nTexts.basicUseLocalDrawio[language]}
+          </label>
+        </div>
+
+        {useLocalDrawio && (
+          <div>
+            <label className="mb-2 block text-sm font-medium text-muted">{i18nTexts.basicDrawioAddress[language]}</label>
+            <Input
+              value={drawioBaseUrl}
+              onChange={(e) => setDrawioBaseUrl(e.target.value)}
+              placeholder={i18nTexts.basicDrawioAddressPlaceholder[language]}
+              className="rounded-xl"
+            />
+            <p className="mt-2 text-xs text-muted">
+              {i18nTexts.basicDrawioDesc[language]}<code className="bg-muted/50 px-1 py-0.5 rounded">docker run -d -p 8080:8080 jgraph/drawio</code>
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3 pt-4">
         <Button onClick={handleSave} disabled={loading} className="rounded-full">
-          {loading ? '保存中...' : '保存配置'}
+          {loading ? i18nTexts.basicSaving[language] : i18nTexts.adminSaveConfig[language]}
         </Button>
       </div>
     </div>

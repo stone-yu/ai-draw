@@ -1,9 +1,11 @@
 import {useEffect, useState} from 'react'
 import {authService} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
-import {Button} from '@/components/ui'
-import {Copy, KeyRound, Trash2, User} from 'lucide-react'
+import {useFormatDate} from '@/hooks/useTranslation'
+import {Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input} from '@/components/ui'
+import {Copy, KeyRound, Pencil, Trash2, User} from 'lucide-react'
 import {useAuthStore} from '@/stores/authStore'
+import {useSystemStore} from '@/stores/systemStore'
 
 interface AppUser {
   id: string
@@ -24,6 +26,7 @@ interface AppUser {
 interface LocalUser {
   id: string
   ipAddress: string
+  nickname?: string
   firstSeenAt: string
   lastSeenAt: string
 }
@@ -33,12 +36,37 @@ export function UserManagementTabs() {
   const [users, setUsers] = useState<AppUser[]>([])
   const [localUsers, setLocalUsers] = useState<LocalUser[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedLocalUser, setSelectedLocalUser] = useState<LocalUser | null>(null)
+  const [editingNickname, setEditingNickname] = useState('')
   const { success, error: showError } = useToast()
+  const { formatDate } = useFormatDate()
   const currentUser = useAuthStore((state) => state.user)
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
 
   const handleCopyUserId = (userId: string) => {
     navigator.clipboard.writeText(userId)
-    success('用户ID已复制')
+    success(i18nTexts.statsCopyUserID[language])
+  }
+
+  const handleEditLocalUserNickname = (user: LocalUser) => {
+    setSelectedLocalUser(user)
+    setEditingNickname(user.nickname || '')
+  }
+
+  const handleSaveNickname = async () => {
+    if (!selectedLocalUser) return
+
+    try {
+      await authService.updateLocalUserNickname(selectedLocalUser.id, editingNickname)
+      setLocalUsers(localUsers.map(u =>
+        u.id === selectedLocalUser.id ? { ...u, nickname: editingNickname } : u
+      ))
+      success(i18nTexts.adminNicknameUpdated[language])
+      setSelectedLocalUser(null)
+    } catch (_err) {
+      showError(i18nTexts.adminUpdateNicknameFailed[language])
+    }
   }
 
   useEffect(() => {
@@ -54,7 +82,7 @@ export function UserManagementTabs() {
       setUsers(cloudData)
       setLocalUsers(localData)
     } catch (_err) {
-      showError('加载用户列表失败')
+      showError(i18nTexts.adminLoadUsersFailed[language])
     } finally {
       setLoading(false)
     }
@@ -64,25 +92,25 @@ export function UserManagementTabs() {
     try {
       await authService.updateUserRole(userId, newRole)
       setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u))
-      success('角色更新成功')
+      success(i18nTexts.adminRoleUpdateSuccess[language])
     } catch (_err) {
-      showError('角色更新失败')
+      showError(i18nTexts.adminRoleUpdateFailed[language])
     }
   }
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('确定要删除该用户吗？此操作不可恢复。')) return
+    if (!confirm(i18nTexts.adminConfirmDeleteUser[language])) return
 
     try {
       await authService.deleteUser(userId)
       setUsers(users.filter(u => u.id !== userId))
-      success('用户已删除')
+      success(i18nTexts.adminUserDeleted[language])
     } catch (_err) {
-      showError('删除用户失败')
+      showError(i18nTexts.adminDeleteUserFailed[language])
     }
   }
 
-  if (loading) return <div>加载中...</div>
+  if (loading) return <div>{i18nTexts.adminLoading[language]}</div>
 
   return (
     <div className="space-y-4">
@@ -95,7 +123,7 @@ export function UserManagementTabs() {
               : 'text-muted hover:text-primary'
           }`}
         >
-          云端用户 ({users.length})
+          {i18nTexts.adminCloudUsers[language]} ({users.length})
         </button>
         <button
           onClick={() => setUserTab('local')}
@@ -105,7 +133,7 @@ export function UserManagementTabs() {
               : 'text-muted hover:text-primary'
           }`}
         >
-          本地用户 ({localUsers.length})
+          {i18nTexts.adminLocalUsers[language]} ({localUsers.length})
         </button>
       </div>
 
@@ -127,7 +155,7 @@ export function UserManagementTabs() {
                         {user.username}
                         {user.id === currentUser?.id && (
                           <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
-                            登录用户
+                            {i18nTexts.adminCurrentUser[language]}
                           </span>
                         )}
                       </div>
@@ -136,19 +164,19 @@ export function UserManagementTabs() {
                         <button
                           onClick={() => handleCopyUserId(user.id)}
                           className="inline-flex items-center justify-center hover:bg-muted rounded p-0.5 transition-colors"
-                          title="复制用户ID"
+                          title={i18nTexts.adminCopyUserIDTitle[language]}
                         >
                           <Copy className="h-3 w-3" />
                         </button>
                       </div>
-                      {user.createdAt && (
-                        <div className="text-xs text-muted">
-                          注册时间: {new Date(user.createdAt).toLocaleString('zh-CN')}
-                        </div>
-                      )}
+                {user.createdAt && (
+                  <div className="text-xs text-muted">
+                    {i18nTexts.adminRegisteredAt[language]}: {formatDate(new Date(user.createdAt), 'datetime')}
+                  </div>
+                )}
                       {user.lastSeenAt && (
                         <div className="text-xs text-muted">
-                          最近访问: {new Date(user.lastSeenAt).toLocaleString('zh-CN')}
+                          {i18nTexts.adminLastSeenAt[language]}: {formatDate(new Date(user.lastSeenAt), 'datetime')}
                         </div>
                       )}
                     </div>
@@ -156,15 +184,15 @@ export function UserManagementTabs() {
 
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted">角色:</span>
+                      <span className="text-xs text-muted">{i18nTexts.adminRoleLabel[language]}</span>
                       <select
                         value={user.role || 'user'}
                         onChange={(e) => handleRoleChange(user.id, e.target.value as 'user' | 'admin')}
                         disabled={user.id === currentUser?.id}
                         className="h-7 rounded-md border border-input bg-background px-2 text-xs"
                       >
-                        <option value="user">普通用户</option>
-                        <option value="admin">管理员</option>
+                        <option value="user">{i18nTexts.adminCommonUser[language]}</option>
+                        <option value="admin">{i18nTexts.adminAdminUser[language]}</option>
                       </select>
                     </div>
 
@@ -173,7 +201,7 @@ export function UserManagementTabs() {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7"
-                        title="重置密码"
+                        title={i18nTexts.adminResetPassword[language]}
                       >
                         <KeyRound className="h-3.5 w-3.5" />
                       </Button>
@@ -183,7 +211,7 @@ export function UserManagementTabs() {
                         className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => handleDeleteUser(user.id)}
                         disabled={user.id === currentUser?.id}
-                        title={user.id === currentUser?.id ? '不能删除自己' : '删除用户'}
+                        title={user.id === currentUser?.id ? i18nTexts.adminCannotDeleteSelf[language] : i18nTexts.adminDeleteUser[language]}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -201,7 +229,7 @@ export function UserManagementTabs() {
           <div className="p-4">
             <div className="space-y-4">
               {localUsers.length === 0 ? (
-                <div className="text-center py-8 text-muted">暂无本地用户</div>
+                <div className="text-center py-8 text-muted">{i18nTexts.statsNoRecords[language]}</div>
               ) : (
                 localUsers.map((user) => (
                   <div
@@ -213,13 +241,22 @@ export function UserManagementTabs() {
                         <User className="h-5 w-5" />
                       </div>
                       <div>
-                        <div className="font-medium text-sm">本地用户</div>
+                        <div className="font-medium text-sm flex items-center gap-2">
+                          {user.nickname || i18nTexts.adminLocalUserLabel[language]}
+                          <button
+                            onClick={() => handleEditLocalUserNickname(user)}
+                            className="inline-flex items-center justify-center hover:bg-muted rounded p-1 transition-colors"
+                            title={i18nTexts.adminEditNickname[language]}
+                          >
+                            <Pencil className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                        </div>
                         <div className="text-xs text-muted flex items-center gap-1">
                           <span>ID: {user.id}</span>
                           <button
                             onClick={() => handleCopyUserId(user.id)}
                             className="inline-flex items-center justify-center hover:bg-muted rounded p-0.5 transition-colors"
-                            title="复制用户ID"
+                            title={i18nTexts.adminCopyUserIDTitle[language]}
                           >
                             <Copy className="h-3 w-3" />
                           </button>
@@ -228,8 +265,8 @@ export function UserManagementTabs() {
                       </div>
                     </div>
                     <div className="text-xs text-muted">
-                      <div>首次访问: {new Date(user.firstSeenAt).toLocaleString('zh-CN')}</div>
-                      <div>最近访问: {new Date(user.lastSeenAt).toLocaleString('zh-CN')}</div>
+                      <div>{i18nTexts.adminFirstSeenAt[language]}: {formatDate(new Date(user.firstSeenAt), 'datetime')}</div>
+                      <div>{i18nTexts.adminLastSeenAt[language]}: {formatDate(new Date(user.lastSeenAt), 'datetime')}</div>
                     </div>
                   </div>
                 ))
@@ -238,6 +275,33 @@ export function UserManagementTabs() {
           </div>
         </div>
       )}
+
+      {/* Edit Local User Nickname Dialog */}
+      <Dialog open={!!selectedLocalUser} onOpenChange={(open) => !open && setSelectedLocalUser(null)}>
+        <DialogContent className="rounded-2xl sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>{i18nTexts.adminEditNickname[language]}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              value={editingNickname}
+              onChange={(e) => setEditingNickname(e.target.value)}
+              placeholder={i18nTexts.adminUserRemark[language]}
+            />
+            <p className="mt-2 text-xs text-muted">
+              {language === 'zh' ? '备注名仅管理员可见，用于标识和区分用户' : 'Nickname is only visible to administrators, used to identify and differentiate users'}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedLocalUser(null)} className="rounded-full">
+              {i18nTexts.profileCancel[language]}
+            </Button>
+            <Button onClick={handleSaveNickname} className="rounded-full">
+              {i18nTexts.profileSave[language]}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -22,6 +22,7 @@ import {selectIsEmpty, useEditorStore} from '@/stores/editorStore'
 import {useAIGenerate} from '@/hooks/useAIGenerate'
 import {useToast} from '@/hooks/useToast'
 import {aiService} from '@/services/aiService'
+import {useSystemStore} from '@/stores/systemStore'
 import {
   fileToBase64,
   parseDocument,
@@ -54,6 +55,8 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
   const currentProject = useEditorStore((s) => s.currentProject)
   const { generate, retryLast } = useAIGenerate()
   const { error: showError, success: showSuccess } = useToast()
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -295,9 +298,9 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-4 py-1">
           <div>
-            <h2 className="font-medium text-primary">AI 助手</h2>
+            <h2 className="font-medium text-primary">{i18nTexts.editorAIAssistant[language]}</h2>
           <p className="text-xs text-muted">
-            {isCanvasEmpty ? '新建图表' : '基于当前图表修改'}
+            {isCanvasEmpty ? i18nTexts.editorNewDiagram[language] : i18nTexts.editorModifyDiagram[language]}
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -305,7 +308,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                title="收起对话面板"
+                title={i18nTexts.chatCollapsePanel[language]}
                 onClick={onCollapse}
                 disabled={isStreaming}
               >
@@ -315,7 +318,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
             <Button
               variant="ghost"
               size="icon"
-              title="新建对话"
+              title={i18nTexts.chatNewConversation[language]}
               onClick={clearMessages}
               disabled={isStreaming || messages.length === 0}
             >
@@ -330,7 +333,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
           <div className="flex h-full flex-col items-center justify-center text-center text-muted">
             <Bot className="mb-4 h-12 w-12 opacity-50" />
             <p className="text-sm">
-              描述你的需求
+              {i18nTexts.chatEmptyPrompt[language]}
             </p>
           </div>
         ) : (
@@ -514,7 +517,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
           {/* Textarea */}
           <textarea
             ref={textareaRef}
-            placeholder="输入你的消息...（支持粘贴图片）"
+            placeholder={i18nTexts.chatInputPlaceholder[language]}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}

@@ -34,10 +34,13 @@ import {formatDate} from '@/lib/utils'
 import type {Group, Project} from '@/types'
 import {ProjectRepository} from '@/services/projectRepository'
 import {GroupRepository} from '@/services/groupRepository'
+import {useSystemStore} from '@/stores/systemStore'
 
 export function ProjectsPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
   const [projects, setProjects] = useState<Project[]>([])
   const [groups, setGroups] = useState<Group[]>([])
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null) // null = All, 'uncategorized' = Uncategorized
@@ -234,13 +237,13 @@ export function ProjectsPage() {
         <div className="flex w-64 flex-col border-r border-border bg-surface/50">
           {/* Header */}
           <div className="flex h-14 items-center justify-between border-b border-border px-4">
-            <h2 className="font-semibold text-primary">文件管理</h2>
+            <h2 className="font-semibold text-primary">{i18nTexts.projectsPageTitle[language]}</h2>
             <Button
               variant="ghost"
               size="icon"
               className="h-8 w-8"
               onClick={() => setIsCreateGroupDialogOpen(true)}
-              title="新建分组"
+              title={i18nTexts.projectsNew[language]}
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -251,7 +254,7 @@ export function ProjectsPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
               <Input
-                placeholder="搜索文件..."
+                placeholder={i18nTexts.projectsSearchPlaceholder[language]}
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value)
@@ -276,7 +279,7 @@ export function ProjectsPage() {
               }`}
             >
               <Folder className="h-4 w-4" />
-              全部文件
+              {i18nTexts.projectsAllFiles[language]}
               <span className="ml-auto text-xs opacity-60">{total}</span>
             </button>
 
@@ -292,7 +295,7 @@ export function ProjectsPage() {
               }`}
             >
               <FolderOpen className="h-4 w-4" />
-              未分组
+              {i18nTexts.projectsUncategorized[language]}
               <span className="ml-auto text-xs opacity-60">
                 {/* Count is not available for uncategorized without fetching */}
               </span>
@@ -353,16 +356,16 @@ export function ProjectsPage() {
           <div className="flex h-14 items-center justify-between border-b border-border px-6">
             <div className="flex items-center gap-3">
               <h1 className="text-lg font-semibold text-primary">
-                {selectedGroupId === null ? '全部文件' :
-                 selectedGroupId === 'uncategorized' ? '未分组' :
-                 groups.find(g => g.id === selectedGroupId)?.name || '文件列表'}
+                {selectedGroupId === null ? i18nTexts.projectsAllFiles[language] :
+                 selectedGroupId === 'uncategorized' ? i18nTexts.projectsUncategorized[language] :
+                 groups.find(g => g.id === selectedGroupId)?.name || i18nTexts.projectsPageTitle[language]}
               </h1>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="rounded-full h-8 gap-1.5">
                     <ArrowDownUp className="h-3.5 w-3.5" />
                     <span className="text-xs">
-                      {sortBy === 'updatedAt' ? '最后更新' : '创建时间'}
+                      {sortBy === 'updatedAt' ? i18nTexts.projectsSortUpdated[language] : i18nTexts.projectsSortCreated[language]}
                     </span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -374,7 +377,7 @@ export function ProjectsPage() {
                     }}
                     className={sortBy === 'updatedAt' ? 'bg-primary/10 text-primary' : ''}
                   >
-                    按最后更新时间
+                    {i18nTexts.projectsSortByUpdated[language]}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => {
@@ -383,7 +386,7 @@ export function ProjectsPage() {
                     }}
                     className={sortBy === 'createdAt' ? 'bg-primary/10 text-primary' : ''}
                   >
-                    按创建时间
+                    {i18nTexts.projectsSortByCreated[language]}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -396,7 +399,7 @@ export function ProjectsPage() {
                 className="rounded-full"
               >
                 <Upload className="mr-2 h-3.5 w-3.5" />
-                导入
+                {i18nTexts.projectsImport[language]}
               </Button>
               <Button
                 size="sm"
@@ -404,7 +407,7 @@ export function ProjectsPage() {
                 className="rounded-full bg-primary text-surface hover:bg-primary/90"
               >
                 <Plus className="mr-2 h-3.5 w-3.5" />
-                新建
+                {i18nTexts.projectsNew[language]}
               </Button>
             </div>
           </div>
@@ -460,7 +463,7 @@ export function ProjectsPage() {
                     {/* Action Buttons - 右上角 */}
                     <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                       <div className="flex items-center rounded-md bg-surface/90 px-2 py-1 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur-sm">
-                        更新于 {formatDate(project.updatedAt)}
+                        {i18nTexts.projectsUpdatedAt[language]} {formatDate(project.updatedAt)}
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -531,7 +534,7 @@ export function ProjectsPage() {
                           {project.engineType.toUpperCase()}
                         </span>
                         <p className="text-[10px] text-muted-foreground/60">
-                          创建于 {formatDate(project.createdAt)}
+                          {i18nTexts.projectsCreatedAt[language]} {formatDate(project.createdAt)}
                         </p>
                       </div>
                     </div>
@@ -553,7 +556,10 @@ export function ProjectsPage() {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <span className="text-sm text-muted-foreground">
-                  第 {page} 页 / 共 {Math.ceil(total / pageSize)} 页
+                  {language === 'zh'
+                    ? `${i18nTexts.paginationPage[language]} ${page} ${i18nTexts.paginationOf[language]} ${Math.ceil(total / pageSize)} ${i18nTexts.paginationTotal[language]}`
+                    : `${i18nTexts.paginationPage[language]} ${page} ${i18nTexts.paginationOf[language]} ${Math.ceil(total / pageSize)} ${i18nTexts.paginationTotal[language]}`
+                  }
                 </span>
                 <Button
                   variant="outline"
@@ -807,7 +813,7 @@ export function ProjectsPage() {
                 ) : (
                   <div className="flex flex-col items-center justify-center text-muted-foreground">
                     <Logo className="h-24 w-24 opacity-20 mb-4" />
-                    <p>暂无预览图</p>
+                    <p>{i18nTexts.projectsNoPreview[language]}</p>
                   </div>
                 )}
               </div>
@@ -815,9 +821,9 @@ export function ProjectsPage() {
                 <div className="flex flex-col gap-2 flex-1 mr-4">
                   <h2 className="text-xl font-semibold text-primary truncate" title={previewProject?.title}>{previewProject?.title}</h2>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span>创建时间：{previewProject && formatDate(previewProject.createdAt, true)}</span>
+                    <span>{i18nTexts.projectsCreateTime[language]}：{previewProject && formatDate(previewProject.createdAt, true)}</span>
                     <span className="w-px h-3 bg-border"></span>
-                    <span>更新时间：{previewProject && formatDate(previewProject.updatedAt, true)}</span>
+                    <span>{i18nTexts.projectsUpdateTime[language]}：{previewProject && formatDate(previewProject.updatedAt, true)}</span>
                   </div>
                 </div>
                 <Button
@@ -828,7 +834,7 @@ export function ProjectsPage() {
                   }}
                   className="rounded-full px-8 h-12 text-base shrink-0"
                 >
-                  进入编辑
+                  {i18nTexts.projectsEnterEdit[language]}
                 </Button>
               </div>
             </div>

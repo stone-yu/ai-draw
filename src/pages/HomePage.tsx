@@ -31,6 +31,8 @@ export function HomePage() {
   const [prompt, setPrompt] = useState('')
   const defaultEngine = useSystemStore((state) => state.defaultEngine)
   const logoColor = useSystemStore((state) => state.logoColor)
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
   const notifications = useSystemStore((state) => state.notifications)
   const [isLoading, setIsLoading] = useState(false)
   const [recentProjects, setRecentProjects] = useState<Project[]>([])
@@ -285,7 +287,8 @@ export function HomePage() {
   }
 
   const handleQuickAction = async (action: (typeof QUICK_ACTIONS)[0]) => {
-    setPrompt(action.prompt)
+    const promptText = typeof action.prompt === 'string' ? action.prompt : action.prompt[language]
+    setPrompt(promptText)
 
     // 如果有图片，自动添加为附件（替换现有图片）
     if (action.image) {
@@ -409,9 +412,9 @@ export function HomePage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-full shadow-sm" style={{ backgroundColor: logoColor }}>
                 <Logo className="h-7 w-7" style={{ color: 'white' }} />
               </div>
-              <span>一句话见所想</span>
+              <span>{i18nTexts.homeTitle[language]}</span>
             </div>
-            <p className="text-lg text-muted-foreground">与 AI 对话，让所想即刻呈现</p>
+            <p className="text-lg text-muted-foreground">{i18nTexts.homeSubtitle[language]}</p>
           </div>
 
           {/* Chat Input Box */}
@@ -470,7 +473,7 @@ export function HomePage() {
             <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm transition-shadow focus-within:shadow-md">
               <textarea
                 ref={textareaRef}
-                placeholder={`输入你的想法，开始创作吧...`}
+                placeholder={i18nTexts.homePlaceholder[language]}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -497,10 +500,10 @@ export function HomePage() {
                   <button
                     onClick={handleAttachmentClick}
                     className="group relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:bg-background hover:text-primary"
-                    title="上传文档（图片、PDF、文本）"
+                    title={language === 'zh' ? '上传文档（图片、PDF、文本）' : 'Upload documents (images, PDF, text)'}
                   >
                     <Paperclip className="h-4 w-4" />
-                    <span>上传文件</span>
+                    <span>{i18nTexts.homeUploadFile[language]}</span>
                     <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-primary px-3 py-2 text-xs text-surface opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                       可上传文档一键转化为图表，或上传截图复刻图表
                       <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-primary"></div>
@@ -513,10 +516,10 @@ export function HomePage() {
                       onClick={() => setShowUrlInput(!showUrlInput)}
                       disabled={isParsingUrl}
                       className="group relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:bg-background hover:text-primary disabled:opacity-50"
-                      title="添加网页链接，AI将解析内容"
+                      title={language === 'zh' ? '添加网页链接，AI将解析内容' : 'Add webpage link, AI will parse content'}
                     >
                       <Link className="h-4 w-4" />
-                      <span>添加链接</span>
+                      <span>{i18nTexts.homeAddLink[language]}</span>
                       <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-primary px-3 py-2 text-xs text-surface opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                         添加网页链接，AI将解析内容生成图表
                         <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-primary"></div>
@@ -571,7 +574,7 @@ export function HomePage() {
                   <div className="h-3 w-[1px] bg-border mx-1" />
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground/50 select-none">
                     <Info className="h-3 w-3" />
-                    <span>支持粘贴图片</span>
+                    <span>{i18nTexts.homePasteImageTip[language]}</span>
                   </div>
 
                   <div className="h-3 w-[1px] bg-border mx-1" />
@@ -585,11 +588,11 @@ export function HomePage() {
                   className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-surface transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
                   <>{isLoading ? (
-                    <span>创建中...</span>
+                    <span>{i18nTexts.homeCreating[language]}</span>
                   ) : (
                     <div className="flex items-center gap-2">
                       <Send className="h-4 w-4" />
-                      <span>发送</span>
+                      <span>{i18nTexts.homeSend[language]}</span>
                     </div>
                   )}</>
                 </Button>
@@ -604,7 +607,7 @@ export function HomePage() {
                 <div className="mb-4 flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
                     {/*<Sparkles className="h-5 w-5 text-primary" />*/}
-                    <h2 className="text-lg font-medium text-primary">快速开始</h2>
+                    <h2 className="text-lg font-medium text-primary">{i18nTexts.homeQuickStart[language]}</h2>
                   </div>
                 </div>
                 <div className="flex flex-col gap-4 overflow-hidden">
@@ -627,7 +630,7 @@ export function HomePage() {
                             </div>
                           )}
                           <span className="text-sm font-medium text-gray-900 mt-0.5">
-                            {action.prompt}
+                            {typeof action.prompt === 'string' ? action.prompt : action.prompt[language]}
                           </span>
                         </button>
                       ))})()}
@@ -653,7 +656,7 @@ export function HomePage() {
                             </div>
                           )}
                           <span className="text-sm font-medium text-gray-900 mt-0.5">
-                            {action.prompt}
+                            {typeof action.prompt === 'string' ? action.prompt : action.prompt[language]}
                           </span>
                         </button>
                       ))})()}
@@ -679,7 +682,7 @@ export function HomePage() {
                             </div>
                           )}
                           <span className="text-sm font-medium text-gray-900 mt-0.5">
-                            {action.prompt}
+                            {typeof action.prompt === 'string' ? action.prompt : action.prompt[language]}
                           </span>
                         </button>
                       ))})()}
@@ -715,7 +718,7 @@ export function HomePage() {
               <div className="h-full rounded-[32px] bg-surface p-6 shadow-sm border border-border/40 md:p-6">
                 <div className="mb-4 flex items-center justify-between px-1">
                   <div>
-                    <h2 className="text-lg font-medium text-primary">最近文件</h2>
+                    <h2 className="text-lg font-medium text-primary">{i18nTexts.homeRecentFiles[language]}</h2>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">

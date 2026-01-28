@@ -1,4 +1,4 @@
-import {ChevronDown, LogOut, Megaphone, X} from 'lucide-react'
+import {ChevronDown, Languages, LogOut, Megaphone, X} from 'lucide-react'
 import {
   Button,
   Dialog,
@@ -24,6 +24,9 @@ export function AppHeader() {
   const user = useAuthStore((state) => state.user)
   const defaultEngine = useSystemStore((state) => state.defaultEngine)
   const setDefaultEngine = useSystemStore((state) => state.setDefaultEngine)
+  const language = useSystemStore((state) => state.language)
+  const setLanguage = useSystemStore((state) => state.setLanguage)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
   const notifications = useSystemStore((state) => state.notifications)
   const setNotifications = useSystemStore((state) => state.setNotifications)
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
@@ -68,30 +71,45 @@ export function AppHeader() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
-            {ENGINES.map((engine) => (
-              <DropdownMenuItem
-                key={engine.value}
-                onClick={() => setDefaultEngine(engine.value)}
-                className="flex flex-col items-start gap-1 py-2"
-              >
-                <div className="flex w-full items-center justify-between">
-                  <span className="font-medium">{engine.label}</span>
-                  {defaultEngine === engine.value && (
-                    <span className="h-2 w-2 rounded-full bg-primary" />
-                  )}
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {engine.description}
-                </span>
-              </DropdownMenuItem>
-            ))}
+            {ENGINES.map((engine) => {
+              const getEngineDesc = (value: string) => {
+                switch (value) {
+                  case 'mermaid':
+                    return i18nTexts.engineMermaidDesc[language]
+                  case 'excalidraw':
+                    return i18nTexts.engineExcalidrawDesc[language]
+                  case 'drawio':
+                    return i18nTexts.engineDrawioDesc[language]
+                  default:
+                    return engine.description
+                }
+              }
+
+              return (
+                <DropdownMenuItem
+                  key={engine.value}
+                  onClick={() => setDefaultEngine(engine.value)}
+                  className="flex flex-col items-start gap-1 py-2"
+                >
+                  <div className="flex w-full items-center justify-between">
+                    <span className="font-medium">{engine.label}</span>
+                    {defaultEngine === engine.value && (
+                      <span className="h-2 w-2 rounded-full bg-primary" />
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {getEngineDesc(engine.value)}
+                  </span>
+                </DropdownMenuItem>
+              )
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
 
         <div className="flex items-center gap-6 ml-2">
-          <Link to="/docs/manual" className="text-sm font-medium text-slate-700 hover:text-primary transition-colors">使用手册</Link>
-          <Link to="/docs/changelog" className="text-sm font-medium text-slate-700 hover:text-primary transition-colors">更新日志</Link>
-          <Link to="/docs/feedback" className="text-sm font-medium text-slate-700 hover:text-primary transition-colors">问题反馈</Link>
+          <Link to="/docs/manual" className="text-sm font-medium text-slate-700 hover:text-primary transition-colors">{i18nTexts.homeUserManual[language]}</Link>
+          <Link to="/docs/changelog" className="text-sm font-medium text-slate-700 hover:text-primary transition-colors">{i18nTexts.homeChangelog[language]}</Link>
+          <Link to="/docs/feedback" className="text-sm font-medium text-slate-700 hover:text-primary transition-colors">{i18nTexts.homeFeedback[language]}</Link>
         </div>
       </div>
 
@@ -125,7 +143,35 @@ export function AppHeader() {
           </div>
         )}
 
-        <span className="text-sm text-muted">简体中文</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-2">
+              <Languages className="h-4 w-4" />
+              <span className="text-sm">{language === 'zh' ? '简体中文' : 'English'}</span>
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem
+              onClick={() => setLanguage('zh')}
+              className="flex items-center justify-between"
+            >
+              <span>简体中文</span>
+              {language === 'zh' && (
+                <span className="h-2 w-2 rounded-full bg-primary" />
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setLanguage('en')}
+              className="flex items-center justify-between"
+            >
+              <span>English</span>
+              {language === 'en' && (
+                <span className="h-2 w-2 rounded-full bg-primary" />
+              )}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         {user && (
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">{user.nickname || user.username}</span>
@@ -133,11 +179,11 @@ export function AppHeader() {
               variant="ghost"
               size="sm"
               onClick={handleLogout}
-              title="退出登录"
+              title={i18nTexts.userLogout[language]}
               className="gap-2"
             >
               <LogOut className="h-4 w-4" />
-              <span>退出</span>
+              <span>{i18nTexts.btnLogout[language]}</span>
             </Button>
           </div>
         )}

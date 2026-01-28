@@ -58,6 +58,8 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
 
   const { currentProject, currentContent, hasUnsavedChanges, setProject, setContentFromVersion, markAsSaved, reset: resetEditor } = useEditorStore()
   const { clearMessages } = useChatStore()
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
   const notifications = useSystemStore((state) => state.notifications)
   const setNotifications = useSystemStore((state) => state.setNotifications)
 
@@ -375,25 +377,25 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-1.5">
                     <Download className="h-4 w-4" />
-                    <span className="text-xs">导出</span>
+                    <span className="text-xs">{i18nTexts.editorExport[language]}</span>
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent>导出图表</TooltipContent>
+              <TooltipContent>{i18nTexts.editorExportTooltip[language]}</TooltipContent>
             </Tooltip>
             <DropdownMenuContent>
               <DropdownMenuRadioGroup>
                 <DropdownMenuRadioItem className='pl-2' value="svg" onClick={() => canvasRef.current?.exportAsSvg()}>
                   <Code className="mr-2 h-4 w-4" />
-                  导出为 SVG
+                  {i18nTexts.editorExportSVG[language]}
                 </DropdownMenuRadioItem>
                 <DropdownMenuRadioItem className='pl-2' value="png" onClick={() => canvasRef.current?.exportAsPng()}>
                   <Image className="mr-2 h-4 w-4" />
-                  导出为 PNG
+                  {i18nTexts.editorExportPNG[language]}
                 </DropdownMenuRadioItem>
                 <DropdownMenuRadioItem className='pl-2' value="source" onClick={() => canvasRef.current?.exportAsSource()}>
                   <FileText className="mr-2 h-4 w-4" />
-                  导出原文件
+                  {i18nTexts.editorExportSource[language]}
                 </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
@@ -409,10 +411,10 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
                 className="gap-1.5"
               >
                 <Code className="h-4 w-4" />
-                <span className="text-xs">源码</span>
+                <span className="text-xs">{i18nTexts.editorSourceCode[language]}</span>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>查看源码</TooltipContent>
+            <TooltipContent>{i18nTexts.editorSourceCodeTooltip[language]}</TooltipContent>
           </Tooltip>
 
           <div className="mx-1 h-4 w-px bg-border" />
@@ -424,7 +426,7 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
             disabled={!hasUnsavedChanges}
           >
             <Save className="mr-2 h-4 w-4" />
-            保存
+            {i18nTexts.editorSave[language]}
           </Button>
 
           {mode !== 'example' && (
@@ -434,7 +436,7 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
               onClick={() => setIsVersionPanelOpen(!isVersionPanelOpen)}
             >
               <History className="mr-2 h-4 w-4" />
-              历史版本
+              {i18nTexts.editorHistory[language]}
             </Button>
           )}
         </div>
@@ -452,7 +454,7 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                title="展开对话面板"
+                title={i18nTexts.editorExpandPanel[language]}
                 onClick={() => setIsChatPanelCollapsed(false)}
               >
                 <ChevronRight className="h-4 w-4" />

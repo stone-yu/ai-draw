@@ -5,6 +5,7 @@ import {ProviderIcon} from '@/components/icons/ProviderIcon'
 import {authService} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
 import {useStorageModeStore} from '@/stores/storageModeStore'
+import {useSystemStore} from '@/stores/systemStore'
 import {useNavigate} from 'react-router-dom'
 
 interface Provider {
@@ -74,6 +75,8 @@ export function ModelSelector({ className }: ModelSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const { success, error: showError } = useToast()
   const storageMode = useStorageModeStore((state) => state.mode)
+  const language = useSystemStore((state) => state.language)
+  const i18nTexts = useSystemStore((state) => state.i18nTexts)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -145,9 +148,9 @@ export function ModelSelector({ className }: ModelSelectorProps) {
   }
 
   const getCurrentModelName = () => {
-    if (activeId === 'system') return '系统默认'
+    if (activeId === 'system') return i18nTexts.homeSystemDefault[language]
     const provider = providers.find(p => p.id === activeId)
-    return provider ? (provider.modelId || provider.name) : '未知模型'
+    return provider ? (provider.modelId || provider.name) : (language === 'zh' ? '未知模型' : 'Unknown Model')
   }
 
   const getCurrentProviderType = () => {
@@ -195,7 +198,7 @@ export function ModelSelector({ className }: ModelSelectorProps) {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="搜索模型..."
+                placeholder={i18nTexts.profileSearchModel[language]}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 border border-border/50 bg-white focus-visible:ring-0 rounded-lg h-9"
@@ -207,7 +210,7 @@ export function ModelSelector({ className }: ModelSelectorProps) {
             {/* Local Mode Hint */}
             {storageMode === 'local' && (
               <div className="mb-3 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20 text-xs text-green-600">
-                目前是本地模式，个人配置的AI模型密钥信息，只存储在本地浏览器，请放心配置
+                {i18nTexts.profileLocalModeHint[language]}
               </div>
             )}
 
@@ -227,7 +230,7 @@ export function ModelSelector({ className }: ModelSelectorProps) {
                     <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
                       <Server className="h-4 w-4" />
                     </div>
-                    <span>服务器默认</span>
+                    <span>{i18nTexts.profileServerDefault[language]}</span>
                   </div>
                   {activeId === 'system' && <Check className="h-4 w-4" />}
                 </button>
@@ -293,7 +296,7 @@ export function ModelSelector({ className }: ModelSelectorProps) {
               }}
             >
               <Settings className="h-3.5 w-3.5" />
-              <span>配置模型</span>
+              <span>{i18nTexts.profileConfigModel[language]}</span>
             </Button>
           </div>
         </DialogContent>
