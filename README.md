@@ -1,5 +1,5 @@
 
-中文 | [English](./README_CN.md)
+中文 | [English](./README_EN.md)
 
 <p>An AI-powered diagram platform lets you describe charts in natural language and interact with AI for easy creation. It supports Mermaid, Excalidraw, and Draw.io engines. Users can privately deploy with Docker, store and manage diagram files, and choose between local or cloud use.
 
