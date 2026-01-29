@@ -171,10 +171,10 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
                 >
                   <div className="flex items-center gap-2 font-medium text-foreground">
                     <Database className="h-4 w-4" /> {i18nTexts.localMode[language]}
-                    {mode === 'local' && <span className="ml-auto text-xs text-primary">{language === 'zh' ? '当前使用' : 'Current'}</span>}
+                    {mode === 'local' && <span className="ml-auto text-xs text-primary">{i18nTexts.currentMode[language]}</span>}
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                    所有信息存储在本地，包含AI 密钥，图表文件，适用于数据安全要求比较高的场景。
+                    {i18nTexts.localModeDesc[language]}
                   </p>
                 </div>
 
@@ -187,10 +187,10 @@ export function AppSidebar({ onCreateProject }: AppSidebarProps) {
                 >
                   <div className="flex items-center gap-2 font-medium text-foreground">
                     <Cloud className="h-4 w-4" /> {i18nTexts.cloudMode[language]}
-                    {mode === 'cloud' && <span className="ml-auto text-xs text-primary">{language === 'zh' ? '当前使用' : 'Current'}</span>}
+                    {mode === 'cloud' && <span className="ml-auto text-xs text-primary">{i18nTexts.currentMode[language]}</span>}
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                    需要登录使用，配置信息及图表文件会保存到云端，适合私有部署的用户，这样切换电脑或浏览器，数据和配置保持同步。
+                    {i18nTexts.cloudModeDesc[language]}
                   </p>
                 </div>
               </div>

@@ -198,6 +198,9 @@ export interface I18nTexts {
   storageMode: { zh: string; en: string }
   localMode: { zh: string; en: string }
   cloudMode: { zh: string; en: string }
+  localModeDesc: { zh: string; en: string }
+  cloudModeDesc: { zh: string; en: string }
+  currentMode: { zh: string; en: string }
   collapseMenu: { zh: string; en: string }
   expandMenu: { zh: string; en: string }
   // 分页
@@ -487,6 +490,9 @@ export const useSystemStore = create<SystemState>((set) => ({
     storageMode: { zh: '存储模式切换', en: 'Storage Mode' },
     localMode: { zh: '本地模式', en: 'Local Mode' },
     cloudMode: { zh: '云端模式', en: 'Cloud Mode' },
+    localModeDesc: { zh: '所有信息存储在本地，包含AI 密钥，图表文件，适用于数据安全要求比较高的场景。', en: 'All information is stored locally, including AI keys and diagram files, suitable for scenarios with high data security requirements.' },
+    cloudModeDesc: { zh: '需要登录使用，配置信息及图表文件会保存到云端，适合私有部署的用户，这样切换电脑或浏览器，数据和配置保持同步。', en: 'Requires login. Configuration and diagram files are saved to the cloud, suitable for privately deployed users to keep data and configuration synchronized across devices or browsers.' },
+    currentMode: { zh: '当前使用', en: 'Current' },
     collapseMenu: { zh: '折叠菜单', en: 'Collapse Menu' },
     expandMenu: { zh: '展开菜单', en: 'Expand Menu' },
     // 分页

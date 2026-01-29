@@ -1,7 +1,12 @@
 
+中文 | [English](./README_CN.md)
+
+<p>An AI-powered diagram platform lets you describe charts in natural language and interact with AI for easy creation. It supports Mermaid, Excalidraw, and Draw.io engines. Users can privately deploy with Docker, store and manage diagram files, and choose between local or cloud use.
+
+<p>AI驱动的图表创作平台，与AI对话，轻松使用Mermaid、Excalidraw和Draw.io绘图，支持docker私有部署、绘图文件存储和管理、本地和云端两种使用模式。
+
 
 <div align=center>
-
   
   # AI Draw <img src="https://github.com/user-attachments/assets/afbc4c80-53ee-4fdd-93cd-b0710408eb8c" width = "30" height = "30" div  /> 一句话见所想
 
@@ -17,15 +22,20 @@
 
 ## 系统截图
 
-![首页](https://github.com/user-attachments/assets/df1ce9d7-03d2-4c9f-89a1-6bc3bdf68912)
+![首页](https://github.com/user-attachments/assets/fb266c8b-b2e3-43dc-ad7a-f31e02a36d77)
+
+![模式切换](https://github.com/user-attachments/assets/6b9b0a5b-b572-4b1a-8cb4-b14818afd554)
 
 ![编辑文件](https://github.com/user-attachments/assets/83e0250c-e97e-4a35-9a3f-c75f6f887e9e)
 
-![文件管理](https://github.com/user-attachments/assets/26093cc8-4fbc-45d4-b0d9-f3f716678bf7)
+![文件管理](https://github.com/user-attachments/assets/d77dbfd9-398f-4cdf-b862-08d4314c7ccd)
 
-**视频片段**
+![管理后台](https://github.com/user-attachments/assets/2e7f6382-313e-4dd0-bb7f-9aac4cfff28d)
 
-https://github.com/user-attachments/assets/2ac6c577-9c66-4806-a169-37d023c5f9fc
+
+## 视频片段
+
+https://github.com/user-attachments/assets/6e98011b-0e42-4e01-b5f2-127ab977e250
 
 ## 私有部署- Docker Compose （推荐）
 
@@ -97,6 +107,7 @@ pnpm run dev:backend    # 仅 Wrangler Pages (http://localhost:8787)
 | OpenAI | openai | https://api.openai.com/v1 | gpt-5 |
 | Anthropic | anthropic | https://api.anthropic.com/v1 | claude-sonnet-4-5 |
 | 其他兼容服务 | openai | 自定义 URL | - |
+
 
 
 ## 问题反馈
