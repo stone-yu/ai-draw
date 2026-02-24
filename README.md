@@ -57,7 +57,7 @@
 **1. docker部署并启动项目**
 > \[!TIP]
 >
-> 镜像地址国内使用**阿里云镜像地址**下载速度会更快： registry.cn-hangzhou.aliyuncs.com/stone-yu/ai-draw:latest
+> 国内使用**阿里云镜像地址**下载速度会更快： registry.cn-hangzhou.aliyuncs.com/stone-yu/ai-draw:latest
 
 ```bash
 version: '3.8'
