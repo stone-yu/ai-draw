@@ -11,9 +11,23 @@ interface ChangelogItem {
 
 const CHANGELOG_DATA: ChangelogItem[] = [
   {
+    version: 'v1.9.2',
+    date: '2026-02-24',
+    isLatest: true,
+    content: {
+      zh: `
+#### 🛠 优化能力
+- 优化AI对话编辑文件能力。
+    `,
+      en: `
+####  🛠 Improvements
+- Optimize the AI's ability to edit dialogue files.
+    `
+    }
+  },{
     version: 'v1.9.0',
     date: '2026-01-28',
-    isLatest: true,
+    isLatest: false,
     content: {
       zh: `
 #### ✨ 新增能力

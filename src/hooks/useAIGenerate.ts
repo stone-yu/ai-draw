@@ -11,9 +11,8 @@ import {generateThumbnail} from '@/lib/thumbnail'
 import {aiService} from '@/services/aiService'
 import {validateContent} from '@/lib/validators'
 import {useToast} from '@/hooks/useToast'
-import {convertToLegalXml, parseResponse, replaceNodes, validateAndFixXml} from '@/lib/xmlUtils'
-import {validateImageDimensions} from '@/lib/fileUtils'
-import type {Attachment, ContentPart, EngineType, PayloadMessage} from '@/types'
+import {applyDiagramOperations, convertToLegalXml, parseResponse, replaceNodes, validateAndFixXml} from '@/lib/xmlUtils'
+import type {Attachment, EngineType, PayloadMessage} from '@/types'
 
 // Enable streaming by default, can be configured
 const USE_STREAMING = true
@@ -41,63 +40,38 @@ const throttle = (func: Function, wait: number) => {
 }
 
 /**
- * Build multimodal content from text, attachments, and optional current thumbnail
- * @param text - The text content
+ * Build multimodal content from text, attachments, and optional context
+ * @param text - The text content (may include XML context for drawio)
  * @param attachments - Optional user attachments (images or documents)
- * @param currentThumbnail - Optional current diagram thumbnail for context
  */
 function buildMultimodalContent(
   text: string,
   attachments?: Attachment[],
-  currentThumbnail?: string
-): string | ContentPart[] {
+): string {
   const hasAttachments = attachments && attachments.length > 0
-  const hasThumbnail = currentThumbnail && currentThumbnail.trim() !== ''
 
-  if (!hasAttachments && !hasThumbnail) {
+  if (!hasAttachments) {
     return text
   }
 
-  const parts: ContentPart[] = []
-
-  // Add current thumbnail first for context (if available)
-  if (hasThumbnail && currentThumbnail) {
-    parts.push({
-      type: 'image_url',
-      image_url: { url: currentThumbnail! },
-    })
-  }
-
-  // Add text content
-  if (text) {
-    parts.push({ type: 'text', text })
-  }
+  let result = text
 
   // Add user attachments
-  if (hasAttachments) {
-    for (const attachment of attachments) {
-      if (attachment.type === 'image') {
-        parts.push({
-          type: 'image_url',
-          image_url: { url: attachment.dataUrl },
-        })
-      } else if (attachment.type === 'document') {
-        // For documents, append the extracted text content
-        parts.push({
-          type: 'text',
-          text: `\n\n[Document: ${attachment.fileName}]\n${attachment.content}`,
-        })
-      } else if (attachment.type === 'url') {
-        // For URLs, append the extracted markdown content
-        parts.push({
-          type: 'text',
-          text: `\n\n[URL: ${attachment.title}]\n${attachment.content}`,
-        })
-      }
+  for (const attachment of attachments) {
+    if (attachment.type === 'image') {
+      // For images in drawio editing, we include them as text reference
+      // since we're now using XML text-based context instead of thumbnails
+      result += `\n\n[User uploaded image]`
+    } else if (attachment.type === 'document') {
+      // For documents, append the extracted text content
+      result += `\n\n[Document: ${attachment.fileName}]\n${attachment.content}`
+    } else if (attachment.type === 'url') {
+      // For URLs, append the extracted markdown content
+      result += `\n\n[URL: ${attachment.title}]\n${attachment.content}`
     }
   }
 
-  return parts
+  return result
 }
 
 export function useAIGenerate() {
@@ -167,7 +141,9 @@ export function useAIGenerate() {
     let lastProcessedXml = ''
 
     // Throttled editor updater for dynamic rendering
-    const throttledUpdate = throttle((code: string) => {
+    // For partial edits (operations), the code is already complete XML from applyDiagramOperations
+    // For full regeneration, the code is streaming AI output that needs convertToLegalXml
+    const throttledUpdate = throttle((code: string, isPartialEdit: boolean = false) => {
       if (!code) return
 
       // Disable dynamic rendering for Mermaid and Excalidraw
@@ -176,10 +152,10 @@ export function useAIGenerate() {
       }
 
       let codeToRender = code
-      // For drawio, try to fix incomplete XML
-      if (engineType === 'drawio') {
+      // For drawio, try to fix incomplete XML (only for full regeneration, not partial edits)
+      if (engineType === 'drawio' && !isPartialEdit) {
         try {
-          console.log(`[ThrottledUpdate] Input length: ${code.length}`)
+          console.log(`[ThrottledUpdate] Full regeneration mode, input length: ${code.length}`)
           // Use convertToLegalXml for streaming updates to only include complete cells
           // This avoids "invalid XML" errors from incomplete tags at the end of the stream
           const convertedXml = convertToLegalXml(code)
@@ -205,6 +181,17 @@ export function useAIGenerate() {
         } catch (error) {
           console.error('[ThrottledUpdate] Error processing XML:', error)
           return // Skip this update if processing fails
+        }
+      } else if (engineType === 'drawio' && isPartialEdit) {
+        // Partial edit: code is already complete XML from applyDiagramOperations
+        // Just validate and use it directly
+        try {
+          console.log(`[ThrottledUpdate] Partial edit mode, input length: ${code.length}`)
+          codeToRender = validateAndFixXml(code)
+          console.log(`[ThrottledUpdate] Validated XML length: ${codeToRender.length}`)
+        } catch (error) {
+          console.error('[ThrottledUpdate] Error validating partial edit XML:', error)
+          codeToRender = code
         }
       }
 
@@ -246,19 +233,8 @@ export function useAIGenerate() {
           )
         }
       } else {
-        // Single-phase for edits - pass current thumbnail for context
-
-        // Validate thumbnail dimensions if present
-        let validThumbnail: string | undefined = currentProject.thumbnail || undefined
-        if (validThumbnail && validThumbnail.trim() !== '') {
-           // Check if it's a valid image and has minimum dimensions (28x28)
-           const isValid = await validateImageDimensions(validThumbnail, 28, 28)
-           if (!isValid) {
-             console.warn('Thumbnail too small or invalid, skipping')
-             validThumbnail = undefined
-           }
-        }
-
+        // Single-phase for edits - use XML text context instead of thumbnail
+        // This is more efficient and allows AI to do partial edits
         finalCode = await singlePhaseGeneration(
           userInput,
           currentContent,
@@ -266,7 +242,6 @@ export function useAIGenerate() {
           systemPrompt,
           assistantMsgId,
           attachments,
-          validThumbnail,
           metrics,
           throttledUpdate
         )
@@ -278,9 +253,21 @@ export function useAIGenerate() {
 
       if (engineType === 'drawio') {
         validatedCode = validateAndFixXml(validatedCode)
-        // Final merge to ensure viewport preservation
-        const currentContent = useEditorStore.getState().currentContent || `<mxfile><diagram name="Page-1" id="page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>`
-        validatedCode = replaceNodes(currentContent, validatedCode)
+        // Note: For partial edits (operations), applyDiagramOperations already returns complete XML
+        // For full regeneration, we use replaceNodes to preserve viewport
+        // We can detect partial edits by checking if the response contained operations
+        const messages = usePayloadStore.getState().messages
+        const lastAssistantMessage = messages.filter(m => m.role === 'assistant').pop()
+        const isPartialEdit = lastAssistantMessage?.content?.includes('<edit_operations>')
+
+        if (!isPartialEdit) {
+          // Full regeneration: merge to preserve viewport
+          const currentContent = useEditorStore.getState().currentContent || `<mxfile><diagram name="Page-1" id="page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>`
+          validatedCode = replaceNodes(currentContent, validatedCode)
+        } else {
+          // Partial edit: applyDiagramOperations already returned complete XML
+          console.log('[generate] Partial edit detected, skipping replaceNodes')
+        }
       }
 
       let validation = await validateContent(validatedCode, engineType)
@@ -313,7 +300,7 @@ export function useAIGenerate() {
 
       // Final update to ensure everything is synced
       const currentMessageContent = useChatStore.getState().messages.find(m => m.id === assistantMsgId)?.content || ''
-      const { plan, code } = parseResponse(currentMessageContent)
+      const { plan } = parseResponse(currentMessageContent)
 
       updateMessage(assistantMsgId, {
         content: currentMessageContent,
@@ -340,7 +327,10 @@ export function useAIGenerate() {
               const getter = useEditorStore.getState().thumbnailGetter
               if (getter) {
                 const result = await getter()
-                if (result) return result
+                // Validate that result is a valid data URL
+                if (result && (result.startsWith('data:') || /^data:image\/[^;]+;base64,/.test(result))) {
+                  return result
+                }
               }
             }
             return ''
@@ -349,7 +339,7 @@ export function useAIGenerate() {
         } else {
           thumbnail = await generateThumbnail(finalCode, engineType)
         }
-        if (thumbnail) {
+        if (thumbnail && thumbnail.startsWith('data:')) {
           await ProjectRepository.update(currentProject.id, { thumbnail })
           setProject({ ...currentProject, thumbnail })
         }
@@ -494,7 +484,7 @@ export function useAIGenerate() {
           (_chunk, accumulated) => {
             if (!metrics.firstTokenTime) metrics.firstTokenTime = Date.now()
 
-            const { plan, code } = parseResponse(accumulated)
+            const { plan, code, operations } = parseResponse(accumulated)
 
             if (plan && !metrics.planEndTime && accumulated.includes('</plan>')) {
               metrics.planEndTime = Date.now()
@@ -508,8 +498,17 @@ export function useAIGenerate() {
               status: 'streaming'
             })
 
-            if (code) {
-               throttledUpdate(code)
+            // For drawio, handle operations or code
+            if (engineType === 'drawio' && operations && operations.length > 0) {
+              try {
+                const currentContent = useEditorStore.getState().currentContent || `<mxfile><diagram name="Page-1" id="page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>`
+                const { result: editedXml } = applyDiagramOperations(currentContent, operations)
+                throttledUpdate(editedXml, true) // true = isPartialEdit
+              } catch (error) {
+                console.error('[retryLast] Error applying operations:', error)
+              }
+            } else if (code) {
+               throttledUpdate(code, false) // false = full regeneration
             }
           }
         )
@@ -517,7 +516,22 @@ export function useAIGenerate() {
         response = await aiService.chat(payloadMessages)
       }
 
-      let finalCode = extractCode(response, engineType)
+      // Parse response for operations or code
+      const { operations } = parseResponse(response)
+
+      // For drawio, handle operations
+      let finalCode: string
+      if (engineType === 'drawio' && operations && operations.length > 0) {
+        console.log('[retryLast] Applying partial edit operations:', operations.length)
+        const currentContent = useEditorStore.getState().currentContent || `<mxfile><diagram name="Page-1" id="page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>`
+        const { result: editedXml, errors } = applyDiagramOperations(currentContent, operations)
+        if (errors.length > 0) {
+          console.warn('[retryLast] Operation errors:', errors)
+        }
+        finalCode = editedXml
+      } else {
+        finalCode = extractCode(response, engineType)
+      }
 
       let validatedCode = finalCode
       if (engineType === 'drawio') {
@@ -766,6 +780,7 @@ export function useAIGenerate() {
 
   /**
    * Single-phase generation for edits
+   * Supports both full regeneration and partial edits via operations
    */
   const singlePhaseGeneration = async (
     userInput: string,
@@ -774,12 +789,11 @@ export function useAIGenerate() {
     systemPrompt: string,
     assistantMsgId: string,
     attachments?: Attachment[],
-    currentThumbnail?: string,
     metrics?: any,
-    debouncedUpdate?: (code: string) => void
+    debouncedUpdate?: (code: string, isPartialEdit?: boolean) => void
   ): Promise<string> => {
     const editPrompt = buildEditPrompt(currentCode, userInput)
-    const editContent = buildMultimodalContent(editPrompt, attachments, currentThumbnail)
+    const editContent = buildMultimodalContent(editPrompt, attachments)
 
     const messages: PayloadMessage[] = [
       { role: 'system', content: systemPrompt },
@@ -794,7 +808,7 @@ export function useAIGenerate() {
         (_chunk, accumulated) => {
           if (metrics && !metrics.firstTokenTime) metrics.firstTokenTime = Date.now()
 
-          const { plan, code } = parseResponse(accumulated)
+          const { plan, code, operations } = parseResponse(accumulated)
 
           if (metrics && plan && !metrics.planEndTime && accumulated.includes('</plan>')) {
             metrics.planEndTime = Date.now()
@@ -808,14 +822,57 @@ export function useAIGenerate() {
             status: 'streaming'
           })
 
-          if (code && debouncedUpdate) {
-             debouncedUpdate(code)
+          // For drawio, check if we have operations or full code
+          if (engineType === 'drawio' && operations && operations.length > 0) {
+            // Apply operations to current code for preview
+            try {
+              console.log('[singlePhaseGeneration] Applying operations in stream, currentCode length:', currentCode.length)
+              const { result: editedXml } = applyDiagramOperations(currentCode, operations)
+              console.log('[singlePhaseGeneration] Edited XML length:', editedXml.length)
+              if (debouncedUpdate) {
+                debouncedUpdate(editedXml, true) // true = isPartialEdit
+              }
+            } catch (error) {
+              console.error('[singlePhaseGeneration] Error applying operations:', error)
+            }
+          } else if (code && debouncedUpdate) {
+            console.log('[singlePhaseGeneration] Updating with code in stream, length:', code.length)
+            debouncedUpdate(code, false) // false = full regeneration
           }
         }
       )
+
+      // Parse final response
+      const { operations } = parseResponse(response)
+
+      // If drawio returned operations, apply them
+      if (engineType === 'drawio' && operations && operations.length > 0) {
+        console.log('[singlePhaseGeneration] Applying partial edit operations:', operations.length)
+        const { result: editedXml, errors } = applyDiagramOperations(currentCode, operations)
+        if (errors.length > 0) {
+          console.warn('[singlePhaseGeneration] Operation errors:', errors)
+        }
+        return editedXml
+      }
+
+      // Otherwise return the full code
       return extractCode(response, engineType)
     } else {
       const response = await aiService.chat(messages)
+
+      // Parse response for operations
+      const { operations } = parseResponse(response)
+
+      // If drawio returned operations, apply them
+      if (engineType === 'drawio' && operations && operations.length > 0) {
+        console.log('[singlePhaseGeneration] Applying partial edit operations:', operations.length)
+        const { result: editedXml, errors } = applyDiagramOperations(currentCode, operations)
+        if (errors.length > 0) {
+          console.warn('[singlePhaseGeneration] Operation errors:', errors)
+        }
+        return editedXml
+      }
+
       return extractCode(response, engineType)
     }
   }

@@ -15,31 +15,47 @@
 
 [![Image](https://github.com/user-attachments/assets/33a8fde6-2d2e-4c50-9416-7bae701451a4)](http://100qie.cn:3000)
 
+中文 · [English](./README_EN.md) · [反馈问题][github-issues-link]
+
 </div>
 
 <p> AI Draw 是一个智能绘图平台，通过自然语言对话形式，即可快速生成流程图、时序图、架构图等各类图表，无需复杂的拖拽操作，让所想即刻呈现。支持 Mermaid、Excalidraw 和 Draw.io 三大引擎，支持docker私有部署，支持绘图文件存储和文件分组管理。
 <p> 基于 next-ai-drawio 和 ai-draw-next 二次开发，增加文件管理、文件分组管理、本地/云端两种模式支持、动态绘图效果等功能，并调整较多交互，优化使用体验。
 
-## 系统截图
+> \[!IMPORTANT]
+>
+> **收藏项目**，你将从 GitHub 上无延迟地接收所有发布通知～⭐️
 
-![首页](https://github.com/user-attachments/assets/fb266c8b-b2e3-43dc-ad7a-f31e02a36d77)
+## 💬 交流与反馈
+您的反馈对我们非常重要。如果您在使用过程中遇到任何问题，或者有任何功能建议，可通过[github-issues][github-issues-link]反馈问题，同时可通过以下方式在线联系我们。
+<center class="half">
+    <img src="./public/contact.png"/>
+</center>
 
-![模式切换](https://github.com/user-attachments/assets/6b9b0a5b-b572-4b1a-8cb4-b14818afd554)
-
-![编辑文件](https://github.com/user-attachments/assets/83e0250c-e97e-4a35-9a3f-c75f6f887e9e)
-
-![文件管理](https://github.com/user-attachments/assets/d77dbfd9-398f-4cdf-b862-08d4314c7ccd)
-
-![管理后台](https://github.com/user-attachments/assets/2e7f6382-313e-4dd0-bb7f-9aac4cfff28d)
-
+## ✨ 系统一览
+<center class="half">
+    <img src="./public/readme/zh-首页.png" width="200"/>
+    <img src="./public/readme/zh-编辑.png" width="200"/>
+</center>
+<center class="half">
+    <img src="./public/readme/zh-文件管理.png" width="200"/>
+    <img src="./public/readme/zh-模式切换.png" width="200"/>
+    <img src="./public/readme/zh-管理后台.png" width="200"/>
+</center>
 
 ## 视频片段
 
-https://github.com/user-attachments/assets/6e98011b-0e42-4e01-b5f2-127ab977e250
+<video controls width="600">
+  <source src="./public/readme/zh-视频.mp4" type="video/mp4">
+  您的浏览器不支持 video 标签。
+</video>
 
-## 私有部署- Docker Compose （推荐）
+## 🛳 开箱即用- 私有部署 Docker Compose （推荐）
 
 **1. docker部署并启动项目**
+> \[!TIP]
+>
+> 镜像地址国内使用**阿里云镜像地址**下载速度会更快： registry.cn-hangzhou.aliyuncs.com/stone-yu/ai-draw:latest
 
 ```bash
 version: '3.8'
@@ -61,8 +77,6 @@ services:
       - DATA_DIR=/app/data
       - DEBUG=false
 ```
-
-**阿里云镜像地址：** registry.cn-hangzhou.aliyuncs.com/stone-yu/ai-draw:latest
 
 **2.访问地址：** 访问http://<NAS_IP>:3000即可使用，数据将保存在项目目录下的/app/data文件夹中；
 
@@ -108,45 +122,6 @@ pnpm run dev:backend    # 仅 Wrangler Pages (http://localhost:8787)
 | Anthropic | anthropic | https://api.anthropic.com/v1 | claude-sonnet-4-5 |
 | 其他兼容服务 | openai | 自定义 URL | - |
 
-
-
-## 问题反馈
-您的反馈对我们非常重要。如果您在使用过程中遇到任何问题，或者有任何功能建议，欢迎通过以下方式联系我们。
-<div align="center">
-  <table style="border: none;">
-    <tr>
-      <td align="center" style="border: none;">
-        <img src="./public/online-contract.png" width="250" alt="WeChat Pay" /><br>
-      </td>
-      <td width="50" style="border: none;"></td> <td align="center" style="border: none;">
-       <a href="https://github.com/stone-yu/ai-draw/issues" target="_blank">
-          <img src="./public/github-issue.png" width="250" alt="AliPay" />
-       </a><br>
-      </td>
-    </tr>
-  </table>
-</div>
-
-## ☕ 请作者喝杯咖啡
-
-如果觉得 AI Draw 对您有帮助，欢迎打赏支持后续开发与维护！
-
-<div align="center">
-  <table style="border: none;">
-    <tr>
-      <td align="center" style="border: none;">
-        <img src="./public/wechart-pay.png" width="200" alt="WeChat Pay" /><br>
-        <strong>微信</strong>
-      </td>
-      <td width="50" style="border: none;"></td> <td align="center" style="border: none;">
-        <img src="./public/ali-pay.png" width="200" alt="AliPay" /><br>
-        <strong>支付宝</strong>
-      </td>
-    </tr>
-  </table>
-
-  <p>感谢您的支持！您的鼓励是我更新的最大动力。</p>
-</div>
 
 ## 📈 Star History
 

@@ -208,8 +208,13 @@ export const DrawioEditor = forwardRef<DrawioEditorRef, DrawioEditorProps>(
           // 确保返回的是 data URL 格式
           if (exportData.startsWith('data:')) {
             resolve(exportData)
-          } else {
+          } else if (exportData && /^[A-Za-z0-9+/=]+$/.test(exportData)) {
+            // 有效的 base64 字符串
             resolve(`data:image/png;base64,${exportData}`)
+          } else {
+            // 无效数据，返回空字符串
+            console.warn('[getThumbnail] Invalid export data format, expected base64 or data URL')
+            resolve('')
           }
         }
 

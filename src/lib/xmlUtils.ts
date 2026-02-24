@@ -1173,10 +1173,350 @@ export function validateAndFixXml(xml: string): string {
     return xml
 }
 
+// ============================================================================
+// Diagram Operations for Partial Editing
+// ============================================================================
+
+export interface DiagramOperation {
+  operation: 'update' | 'add' | 'delete'
+  cell_id: string
+  new_xml?: string
+}
+
+export interface OperationError {
+  type: 'update' | 'add' | 'delete'
+  cellId: string
+  message: string
+}
+
+export interface ApplyOperationsResult {
+  result: string
+  errors: OperationError[]
+}
+
+/**
+ * Apply diagram operations (update/add/delete) using ID-based lookup.
+ * This enables partial editing of draw.io diagrams without full regeneration.
+ *
+ * @param xmlContent - The full mxfile XML content
+ * @param operations - Array of operations to apply
+ * @returns Object with result XML and any errors
+ */
+export function applyDiagramOperations(
+  xmlContent: string,
+  operations: DiagramOperation[],
+): ApplyOperationsResult {
+  const errors: OperationError[] = []
+
+  console.log('[applyDiagramOperations] START ========================')
+  console.log('[applyDiagramOperations] Input XML length:', xmlContent.length)
+  console.log('[applyDiagramOperations] Operations:', JSON.stringify(operations, null, 2))
+
+  // Parse the XML
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(xmlContent, 'text/xml')
+
+  // Check for parse errors
+  const parseError = doc.querySelector('parsererror')
+  if (parseError) {
+    return {
+      result: xmlContent,
+      errors: [
+        {
+          type: 'update',
+          cellId: '',
+          message: `XML parse error: ${parseError.textContent}`,
+        },
+      ],
+    }
+  }
+
+  // Find the root element (inside mxGraphModel)
+  const root = doc.querySelector('root')
+  if (!root) {
+    return {
+      result: xmlContent,
+      errors: [
+        {
+          type: 'update',
+          cellId: '',
+          message: 'Could not find <root> element in XML',
+        },
+      ],
+    }
+  }
+
+  // Build a map of cell IDs to elements
+  const cellMap = new Map<string, Element>()
+  root.querySelectorAll('mxCell').forEach((cell) => {
+    const id = cell.getAttribute('id')
+    if (id) cellMap.set(id, cell)
+  })
+
+  console.log('[applyDiagramOperations] Total cells in document:', cellMap.size)
+  console.log('[applyDiagramOperations] Cell IDs:', Array.from(cellMap.keys()).slice(0, 20))
+
+  // Process each operation
+  for (const op of operations) {
+    if (op.operation === 'update') {
+      const existingCell = cellMap.get(op.cell_id)
+      if (!existingCell) {
+        errors.push({
+          type: 'update',
+          cellId: op.cell_id,
+          message: `Cell with id="${op.cell_id}" not found`,
+        })
+        continue
+      }
+
+      if (!op.new_xml) {
+        errors.push({
+          type: 'update',
+          cellId: op.cell_id,
+          message: 'new_xml is required for update operation',
+        })
+        continue
+      }
+
+      // Parse the new XML
+      const newDoc = parser.parseFromString(
+        `<wrapper>${op.new_xml}</wrapper>`,
+        'text/xml',
+      )
+      const newCell = newDoc.querySelector('mxCell')
+      if (!newCell) {
+        errors.push({
+          type: 'update',
+          cellId: op.cell_id,
+          message: 'new_xml must contain an mxCell element',
+        })
+        continue
+      }
+
+      // Validate ID matches
+      const newCellId = newCell.getAttribute('id')
+      if (newCellId !== op.cell_id) {
+        errors.push({
+          type: 'update',
+          cellId: op.cell_id,
+          message: `ID mismatch: cell_id is "${op.cell_id}" but new_xml has id="${newCellId}"`,
+        })
+        continue
+      }
+
+      // Import and replace the node
+      const importedNode = doc.importNode(newCell, true)
+      existingCell.parentNode?.replaceChild(importedNode, existingCell)
+
+      // Update the map with the new element
+      cellMap.set(op.cell_id, importedNode)
+    } else if (op.operation === 'add') {
+      // Check if ID already exists
+      if (cellMap.has(op.cell_id)) {
+        errors.push({
+          type: 'add',
+          cellId: op.cell_id,
+          message: `Cell with id="${op.cell_id}" already exists`,
+        })
+        continue
+      }
+
+      if (!op.new_xml) {
+        errors.push({
+          type: 'add',
+          cellId: op.cell_id,
+          message: 'new_xml is required for add operation',
+        })
+        continue
+      }
+
+      // Parse the new XML
+      const newDoc = parser.parseFromString(
+        `<wrapper>${op.new_xml}</wrapper>`,
+        'text/xml',
+      )
+      const newCell = newDoc.querySelector('mxCell')
+      if (!newCell) {
+        errors.push({
+          type: 'add',
+          cellId: op.cell_id,
+          message: 'new_xml must contain an mxCell element',
+        })
+        continue
+      }
+
+      // Validate ID matches
+      const newCellId = newCell.getAttribute('id')
+      if (newCellId !== op.cell_id) {
+        errors.push({
+          type: 'add',
+          cellId: op.cell_id,
+          message: `ID mismatch: cell_id is "${op.cell_id}" but new_xml has id="${newCellId}"`,
+        })
+        continue
+      }
+
+      // Import and append the node
+      const importedNode = doc.importNode(newCell, true)
+      root.appendChild(importedNode)
+
+      // Add to map
+      cellMap.set(op.cell_id, importedNode)
+    } else if (op.operation === 'delete') {
+      // Protect root cells from deletion
+      if (op.cell_id === '0' || op.cell_id === '1') {
+        errors.push({
+          type: 'delete',
+          cellId: op.cell_id,
+          message: `Cannot delete root cell "${op.cell_id}"`,
+        })
+        continue
+      }
+
+      const existingCell = cellMap.get(op.cell_id)
+      if (!existingCell) {
+        // Cell not found - might have been cascade-deleted by a previous operation
+        // Skip silently instead of erroring (AI may redundantly list children/edges)
+        continue
+      }
+
+      // Cascade delete: collect all cells to delete (children + edges + self)
+      const cellsToDelete = new Set<string>()
+
+      // Recursive function to find all descendants
+      const collectDescendants = (cellId: string) => {
+        if (cellsToDelete.has(cellId)) return
+        cellsToDelete.add(cellId)
+
+        // Find children (cells where parent === cellId)
+        const children = root.querySelectorAll(
+          `mxCell[parent="${cellId}"]`,
+        )
+        children.forEach((child) => {
+          const childId = child.getAttribute('id')
+          if (childId && childId !== '0' && childId !== '1') {
+            collectDescendants(childId)
+          }
+        })
+      }
+
+      // Collect the target cell and all its descendants
+      collectDescendants(op.cell_id)
+
+      // Find edges referencing any of the cells to be deleted
+      // Also recursively collect children of those edges (e.g. edge labels)
+      for (const cellId of cellsToDelete) {
+        const referencingEdges = root.querySelectorAll(
+          `mxCell[source="${cellId}"], mxCell[target="${cellId}"]`,
+        )
+        referencingEdges.forEach((edge) => {
+          const edgeId = edge.getAttribute('id')
+          // Protect root cells from being added via edge references
+          if (edgeId && edgeId !== '0' && edgeId !== '1') {
+            // Recurse to collect edge's children (like labels)
+            collectDescendants(edgeId)
+          }
+        })
+      }
+
+      // Log what will be deleted
+      if (cellsToDelete.size > 1) {
+        console.log(
+          `[applyDiagramOperations] Cascade delete "${op.cell_id}" → deleting ${cellsToDelete.size} cells: ${Array.from(cellsToDelete).join(', ')}`,
+        )
+      }
+
+      // Delete all collected cells
+      for (const cellId of cellsToDelete) {
+        const cell = cellMap.get(cellId)
+        if (cell) {
+          cell.parentNode?.removeChild(cell)
+          cellMap.delete(cellId)
+        }
+      }
+    }
+  }
+
+  // Serialize back to string
+  const serializer = new XMLSerializer()
+  const result = serializer.serializeToString(doc)
+
+  console.log('[applyDiagramOperations] Output XML length:', result.length)
+  console.log('[applyDiagramOperations] Output XML (first 500 chars):', result.substring(0, 500))
+  console.log('[applyDiagramOperations] END ========================')
+
+  return { result, errors }
+}
+
+/**
+ * Parse edit operations from AI response
+ * Looks for <edit_operations>...</edit_operations> tags
+ */
+export function parseEditOperations(content: string): { operations: DiagramOperation[] | null, hasOperations: boolean } {
+  const operationsMatch = content.match(/<edit_operations>([\s\S]*?)<\/edit_operations>/)
+  if (!operationsMatch) {
+    return { operations: null, hasOperations: false }
+  }
+
+  try {
+    // Clean up the JSON string
+    let jsonStr = operationsMatch[1].trim()
+
+    // Check if JSON is complete (basic validation)
+    // Count opening and closing braces/brackets
+    const openBraces = (jsonStr.match(/\{/g) || []).length
+    const closeBraces = (jsonStr.match(/\}/g) || []).length
+    const openBrackets = (jsonStr.match(/\[/g) || []).length
+    const closeBrackets = (jsonStr.match(/\]/g) || []).length
+
+    if (openBraces !== closeBraces || openBrackets !== closeBrackets) {
+      console.log('[parseEditOperations] JSON appears incomplete, skipping parse')
+      return { operations: null, hasOperations: true }
+    }
+
+    // Handle escaped quotes from LLM - LLM might escape quotes as \"
+    // We need to handle this carefully
+    // First, let's try parsing as-is
+    let operations: DiagramOperation[]
+    try {
+      operations = JSON.parse(jsonStr)
+    } catch (parseError) {
+      // If that fails, try fixing common LLM JSON issues
+      // Replace \" with " (unescape the quotes)
+      const fixedJson = jsonStr.replace(/\\"/g, '"')
+      operations = JSON.parse(fixedJson)
+    }
+
+    // Validate operations
+    if (!Array.isArray(operations)) {
+      console.error('[parseEditOperations] Operations is not an array')
+      return { operations: null, hasOperations: true }
+    }
+
+    // Validate each operation
+    for (const op of operations) {
+      if (!op.operation || !['update', 'add', 'delete'].includes(op.operation)) {
+        console.error('[parseEditOperations] Invalid operation type:', op.operation)
+        return { operations: null, hasOperations: true }
+      }
+      if (!op.cell_id) {
+        console.error('[parseEditOperations] Missing cell_id in operation')
+        return { operations: null, hasOperations: true }
+      }
+    }
+
+    return { operations, hasOperations: true }
+  } catch (error) {
+    console.error('[parseEditOperations] Failed to parse operations:', error)
+    console.error('[parseEditOperations] Raw content:', operationsMatch[1].substring(0, 500))
+    return { operations: null, hasOperations: true }
+  }
+}
+
 /**
  * Extract plan and code from the AI response
  */
-export function parseResponse(content: string): { plan: string | null, code: string | null } {
+export function parseResponse(content: string): { plan: string | null, code: string | null, operations: DiagramOperation[] | null } {
   let plan: string | null = null
   let code: string | null = null
   let remaining = content
@@ -1190,10 +1530,21 @@ export function parseResponse(content: string): { plan: string | null, code: str
     // Partial plan (streaming)
     const start = content.indexOf('<plan>')
     plan = content.substring(start + 6).trim()
-    return { plan, code: null }
+    return { plan, code: null, operations: null }
   }
 
-  // 2. Try to find code in 'remaining'
+  // 2. Check for edit operations first
+  const { operations, hasOperations } = parseEditOperations(content)
+  if (hasOperations && operations) {
+    // Only return operations if they were successfully parsed
+    return { plan, code: null, operations }
+  } else if (hasOperations && !operations) {
+    // Operations tag exists but JSON is incomplete (streaming)
+    // Return null for everything to indicate we're still waiting
+    return { plan, code: null, operations: null }
+  }
+
+  // 3. Try to find code in 'remaining'
   let codeStart = -1
 
   // Check for Markdown code blocks
@@ -1243,7 +1594,7 @@ export function parseResponse(content: string): { plan: string | null, code: str
     }
   }
 
-  // 3. If plan was not found via tags, try to infer it
+  // 4. If plan was not found via tags, try to infer it
   if (!plan) {
       if (codeStart > 0) {
           // Everything before code is plan
@@ -1254,6 +1605,6 @@ export function parseResponse(content: string): { plan: string | null, code: str
       }
   }
 
-  return { plan, code }
+  return { plan, code, operations }
 }
 

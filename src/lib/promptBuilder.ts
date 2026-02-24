@@ -65,22 +65,66 @@ export function buildEditPrompt(
   currentCode: string,
   userInput: string
 ): string {
-  return `当前图表内容：
-"""
+  // 提取当前图表中的 cell ID 列表，帮助 AI 了解可用元素
+  const cellIds = extractCellIds(currentCode)
+  const cellIdsList = cellIds.length > 0
+    ? `当前图表中的元素 ID：${cellIds.slice(0, 20).join(', ')}${cellIds.length > 20 ? ' ...' : ''}`
+    : '当前图表暂无可见元素'
+
+  return `当前图表 XML 内容：
+\`\`\`xml
 ${currentCode}
-"""
+\`\`\`
+
+${cellIdsList}
 
 用户修改请求："""${userInput}"""
 
 根据用户修改请求进行修改。
 
 ## 修改指南
-1. **全量输出**：必须输出包含所有原有元素的完整 XML 代码，严禁只输出修改部分。
-2. **文本格式**：确保所有包含文本的节点都有 \`whiteSpace=wrap;html=1;\` 样式。
-3. **布局保持**：对于未修改的部分，尽量保持原有的坐标和布局。
-4. **连线优化**：如果移动了节点，请确保连线（edge）路径重新路由，避免穿过节点。
+判断修改范围，选择合适的方式：
 
-请输出 <plan>...</plan> 和完整的 XML 代码。`
+### 小修改（推荐局部修改）
+如果只是修改文字、颜色、位置，或添加/删除少量元素，使用局部修改格式：
+\`<edit_operations>[{"operation": "update|add|delete", "cell_id": "...", "new_xml": "..."}]</edit_operations>\`
+
+示例 - 修改节点文字：
+<edit_operations>
+[{"operation": "update", "cell_id": "3", "new_xml": "<mxCell id=\\"3\\" value=\\"新文本\\" style=\\"rounded=1;whiteSpace=wrap;html=1;\\" vertex=\\"1\\" parent=\\"1\\">\\n  <mxGeometry x=\\"100\\" y=\\"100\\" width=\\"120\\" height=\\"60\\" as=\\"geometry\\"/>\\n</mxCell>"}]
+</edit_operations>
+
+示例 - 删除节点：
+<edit_operations>
+[{"operation": "delete", "cell_id": "5"}]
+</edit_operations>
+
+示例 - 添加新节点：
+<edit_operations>
+[{"operation": "add", "cell_id": "new1", "new_xml": "<mxCell id=\\"new1\\" value=\\"新节点\\" style=\\"rounded=1;whiteSpace=wrap;html=1;\\" vertex=\\"1\\" parent=\\"1\\">\\n  <mxGeometry x=\\"400\\" y=\\"200\\" width=\\"120\\" height=\\"60\\" as=\\"geometry\\"/>\\n</mxCell>"}]
+</edit_operations>
+
+### 大修改（全量重新生成）
+如果用户要求完全重新设计、大幅结构调整，直接输出完整的 XML。
+
+请输出 <plan>...</plan> 和修改内容。`
+}
+
+/**
+ * Extract cell IDs from draw.io XML for reference
+ */
+function extractCellIds(xml: string): string[] {
+  const ids: string[] = []
+  const idPattern = /<mxCell[^>]*\bid=["']([^"']+)["'][^>]*>/g
+  let match
+  while ((match = idPattern.exec(xml)) !== null) {
+    const id = match[1]
+    // Skip root cells (0 and 1)
+    if (id !== '0' && id !== '1') {
+      ids.push(id)
+    }
+  }
+  return ids
 }
 
 /**

@@ -22,13 +22,13 @@ Chat with AI, bring your ideas to life
 
 ## Screenshot
 
-![Index](https://github.com/user-attachments/assets/94511f78-e4bb-4d96-af8b-5593e2beb69a)
+![Index](./public/readme/en-首页.png)
 
-![edit](https://github.com/user-attachments/assets/e2a88a96-0e47-4135-9594-6bf0a923e173)
+![edit](./public/readme/en-文件编辑.png)
 
-![file manage](https://github.com/user-attachments/assets/a200fe52-884b-405b-94f6-60d0f5d697ab)
+![file manage](./public/readme/en-文件管理.png)
 
-![Statistics](https://github.com/user-attachments/assets/fa455516-2805-4258-a8bf-de4f4ff479a7)
+![Statistics](./public/readme/en-管理后台.png)
 
 
 ## Private deployment- Docker Compose （Recommendation）
