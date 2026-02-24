@@ -15,7 +15,7 @@
 
 [![Image](https://github.com/user-attachments/assets/33a8fde6-2d2e-4c50-9416-7bae701451a4)](http://100qie.cn:3000)
 
-中文 · [English](./README_EN.md) · [反馈问题][github-issues-link]
+中文 · [English](./README_EN.md) · [反馈问题](https://github.com/stone-yu/ai-draw/issues)
 
 </div>
 
@@ -27,7 +27,7 @@
 > **收藏项目**，你将从 GitHub 上无延迟地接收所有发布通知～⭐️
 
 ## 💬 交流与反馈
-您的反馈对我们非常重要。如果您在使用过程中遇到任何问题，或者有任何功能建议，可通过[github-issues][github-issues-link]反馈问题，同时可通过以下方式在线联系我们。
+您的反馈对我们非常重要。如果您在使用过程中遇到任何问题，或者有任何功能建议，可通过[github-issues](https://github.com/stone-yu/ai-draw/issues)反馈问题，同时可通过以下方式在线联系我们。
 <center class="half">
     <img src="./public/contact.png"/>
 </center>
