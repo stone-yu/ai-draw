@@ -38,7 +38,7 @@
 
 ![模式切换](./public/readme/zh-模式切换.png)
 
-![编辑文件](./public/readme/zh-编辑文件.png)
+![编辑文件](./public/readme/zh-编辑.png)
 
 ![文件管理](./public/readme/zh-文件管理.png)
 
