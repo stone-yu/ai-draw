@@ -33,22 +33,24 @@
 </center>
 
 ## ✨ 系统一览
-<center class="half">
-    <img src="./public/readme/zh-首页.png" width="200"/>
-    <img src="./public/readme/zh-编辑.png" width="200"/>
-</center>
-<center class="half">
-    <img src="./public/readme/zh-文件管理.png" width="200"/>
-    <img src="./public/readme/zh-模式切换.png" width="200"/>
-    <img src="./public/readme/zh-管理后台.png" width="200"/>
-</center>
 
-## 视频片段
+![首页](./public/readme/zh-首页.png)
+
+![模式切换](./public/readme/zh-模式切换.png)
+
+![编辑文件](./public/readme/zh-编辑文件.png)
+
+![文件管理](./public/readme/zh-文件管理.png)
+
+![管理后台](./public/readme/zh-管理后台.png)
+
+## ✨ 系统演示视频
 
 <video controls width="600">
   <source src="./public/readme/zh-视频.mp4" type="video/mp4">
   您的浏览器不支持 video 标签。
 </video>
+
 
 ## 🛳 开箱即用- 私有部署 Docker Compose （推荐）
 
@@ -114,7 +116,7 @@ pnpm run dev:backend    # 仅 Wrangler Pages (http://localhost:8787)
 - **本地存储**：Dexie.js (IndexedDB)
 - **图标库**：Lucide React
 
-## 支持的 AI 服务
+## 🛠️ 支持的 AI 服务
 
 | 服务商 | AI_PROVIDER | AI_BASE_URL | 推荐模型 |
 |--------|-------------|-------------|----------|
