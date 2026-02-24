@@ -64,7 +64,7 @@ export function FeedbackPage() {
               <h3 className="font-semibold text-slate-900">{t.onlineContact}</h3>
             </div>
             <div className="flex justify-center mt-2 mb-4">
-              <img src="/contact.png" alt={t.onlineContact}
+              <img src="/contact-single.png" alt={t.onlineContact}
                    className="w-32 h-32 object-contain rounded-lg border border-slate-100"/>
             </div>
             <p className="text-sm text-slate-500 text-center">{t.onlineContactDesc}</p>

@@ -258,7 +258,7 @@ export function useAIGenerate() {
         // We can detect partial edits by checking if the response contained operations
         const messages = usePayloadStore.getState().messages
         const lastAssistantMessage = messages.filter(m => m.role === 'assistant').pop()
-        const isPartialEdit = lastAssistantMessage?.content?.includes('<edit_operations>')
+        const isPartialEdit = typeof lastAssistantMessage?.content === 'string' && lastAssistantMessage.content.includes('<edit_operations>')
 
         if (!isPartialEdit) {
           // Full regeneration: merge to preserve viewport
@@ -693,7 +693,7 @@ export function useAIGenerate() {
     }
 
     const phase2Prompt = buildInitialPrompt(userInput, true, 'links', elements)
-    const phase2Content = buildMultimodalContent(phase2Prompt, attachments, phase1Thumbnail)
+    const phase2Content = buildMultimodalContent(phase2Prompt, attachments)
     const phase2Messages: PayloadMessage[] = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: phase1Content },
