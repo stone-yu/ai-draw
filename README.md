@@ -46,6 +46,8 @@
 
 ## ✨ 系统演示视频
 
+![视频预览](./public/readme/zh-视频.mp4)
+
 <video controls width="600">
   <source src="https://github.com/user-attachments/assets/7730ebdb-4079-4650-966f-bd84356e03f4" type="video/mp4">
   您的浏览器不支持 video 标签。
