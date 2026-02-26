@@ -950,9 +950,10 @@ app.put('/api/auth/profile/ai-config', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/auth/validate-ai-config', authenticateToken, async (req, res) => {
-  let { provider, baseUrl, apiKey, modelId } = req.body;
+  let { provider, baseUrl, apiKey } = req.body;
 
-  if (!baseUrl || !apiKey || !modelId) {
+  // For Ollama, API key is optional; modelId is not required for validation
+  if (!baseUrl || (!apiKey && provider !== 'ollama')) {
     return res.status(400).json({ valid: false, error: '请填写完整的配置信息' });
   }
 
@@ -961,6 +962,33 @@ app.post('/api/auth/validate-ai-config', authenticateToken, async (req, res) => 
   }
 
   try {
+    // For Ollama, use the OpenAI compatible /models endpoint
+    if (provider === 'ollama') {
+      const url = `${baseUrl}/models`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10 * 1000);
+
+      const headers = {};
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return res.json({ valid: false, error: `验证失败: ${response.status} - ${errorText}` });
+      }
+
+      return res.json({ valid: true });
+    }
+
     const url = `${baseUrl}/chat/completions`;
 
     // Set timeout for validation (30 seconds should be enough)
@@ -974,7 +1002,7 @@ app.post('/api/auth/validate-ai-config', authenticateToken, async (req, res) => 
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: modelId,
+        model: 'gpt-3.5-turbo',
         messages: [{ role: 'user', content: 'Hi' }],
         max_tokens: 1
       }),
@@ -1019,9 +1047,10 @@ app.post('/api/auth/validate-ai-config', authenticateToken, async (req, res) => 
 });
 
 app.post('/api/ai/models', optionalAuthenticateToken, async (req, res) => {
-  let { apiKey, baseUrl } = req.body;
+  let { apiKey, baseUrl, provider } = req.body;
 
-  if (!apiKey || !baseUrl) {
+  // For Ollama, API key is optional
+  if (!baseUrl || (provider !== 'ollama' && !apiKey)) {
     return res.status(400).json({ error: '请提供 API Key 和 Base URL' });
   }
 
@@ -1036,11 +1065,14 @@ app.post('/api/ai/models', optionalAuthenticateToken, async (req, res) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30 * 1000); // 30 seconds
 
+    const headers = {};
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
-      },
+      headers,
       signal: controller.signal
     });
 
@@ -1429,7 +1461,7 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
   }
 
   try {
-    let apiKey, apiBaseUrl, modelId;
+    let apiKey, apiBaseUrl, modelId, providerId, providerName;
 
     // Check if request body has aiConfig (local mode with custom config OR local mode using system default)
     // This takes priority over user cloud config to support local mode in logged-in state
@@ -1449,9 +1481,15 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
       // Check new secure provider format (前端加密后的格式)
       else if (config.useCustom && config.provider) {
          const provider = config.provider;
-         if (provider.auth) {
-            // 解密 auth 字段获取真实的 apiKey
-            apiKey = decryptSensitive(provider.auth);
+         providerId = provider.id;
+         providerName = provider.name;
+         // For Ollama, auth is optional; for other providers, auth is required
+         const isOllama = provider.name?.toLowerCase() === 'ollama' || provider.id?.toLowerCase() === 'ollama';
+         if (provider.auth || isOllama) {
+            // 解密 auth 字段获取真实的 apiKey (如果存在)
+            if (provider.auth) {
+              apiKey = decryptSensitive(provider.auth);
+            }
             apiBaseUrl = provider.baseUrl;
             modelId = provider.modelId;
             foundCustomConfig = true;
@@ -1466,6 +1504,8 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
       else if (config.useCustom && config.currentProviderId && config.providers) {
          const providerConfig = config.providers.find(p => p.id === config.currentProviderId);
          if (providerConfig) {
+            providerId = providerConfig.id;
+            providerName = providerConfig.name;
             apiKey = providerConfig.apiKey;
             apiBaseUrl = providerConfig.baseUrl;
             modelId = providerConfig.modelId;
@@ -1505,6 +1545,8 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
         if (user.aiConfig.providers && user.aiConfig.currentProviderId) {
           const providerConfig = user.aiConfig.providers.find(p => p.id === user.aiConfig.currentProviderId);
           if (providerConfig) {
+            providerId = providerConfig.id;
+            providerName = providerConfig.name;
             apiKey = providerConfig.apiKey;
             apiBaseUrl = providerConfig.baseUrl;
             modelId = providerConfig.modelId;
@@ -1534,7 +1576,13 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized: No user or AI config provided' });
     }
 
-    if (!apiKey) {
+    // Log the AI configuration being used
+    console.log(`[AI Service] Using provider: ${providerId || 'system-default'}, baseUrl: ${apiBaseUrl}, modelId: ${modelId}`);
+    console.log(`[AI Service] Debug - providerId: "${providerId}", providerName: "${providerName}", apiKey exists: ${!!apiKey}, apiKey value: "${apiKey}"`);
+
+    // For Ollama, API key is optional (check by provider name, case-insensitive)
+    const isOllama = providerName?.toLowerCase() === 'ollama' || providerId?.toLowerCase() === 'ollama';
+    if (!apiKey && !isOllama) {
       return res.status(500).json({ error: 'AI_API_KEY not configured' });
     }
 
@@ -1543,12 +1591,17 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
     const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 minutes
 
     try {
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      // Only add Authorization header if apiKey is provided
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
       const response = await fetch(`${apiBaseUrl}/chat/completions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
+        headers,
         body: JSON.stringify({
           model: modelId,
           messages: req.body.messages,
@@ -1569,7 +1622,7 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
 
       if (req.body.stream) {
         if (debug) {
-          console.log('[AI Service] Starting stream response');
+          console.log(`[AI Service] Starting stream response, providerName: "${providerName}", apiBaseUrl: "${apiBaseUrl}"`);
         }
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');

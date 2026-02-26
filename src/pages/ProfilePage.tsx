@@ -329,6 +329,7 @@ function UserAIConfigSection({
         onOpenChange={setIsModelSelectorOpen}
         apiKey={formData.apiKey}
         baseUrl={formData.baseUrl}
+        provider={formData.type}
         existingModels={formData.models || []}
         onConfirm={handleModelsSelected}
       />
@@ -538,8 +539,8 @@ function UserAIConfigSection({
                       <Button
                         variant="outline"
                         onClick={() => setIsModelSelectorOpen(true)}
-                        disabled={!formData.baseUrl || !formData.apiKey}
-                        title={!formData.baseUrl || !formData.apiKey ? '请先配置 API Key 和 Base URL' : '从供应商获取模型列表'}
+                        disabled={!formData.baseUrl || (formData.type !== 'ollama' && !formData.apiKey)}
+                        title={!formData.baseUrl || (formData.type !== 'ollama' && !formData.apiKey) ? '请先配置 Base URL' : '从供应商获取模型列表'}
                       >
                         <Download className="h-4 w-4 mr-1" />
                         获取模型
@@ -614,6 +615,7 @@ interface ModelSelectorDialogProps {
   onOpenChange: (open: boolean) => void
   apiKey: string
   baseUrl: string
+  provider: string
   existingModels: string[]
   onConfirm: (selectedModels: string[]) => void
 }
@@ -625,7 +627,7 @@ interface ModelGroup {
   expanded: boolean
 }
 
-function ModelSelectorDialog({ open, onOpenChange, apiKey, baseUrl, existingModels, onConfirm }: ModelSelectorDialogProps) {
+function ModelSelectorDialog({ open, onOpenChange, apiKey, baseUrl, provider, existingModels, onConfirm }: ModelSelectorDialogProps) {
   const [loading, setLoading] = useState(false)
   const [modelGroups, setModelGroups] = useState<ModelGroup[]>([])
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set())
@@ -656,7 +658,8 @@ function ModelSelectorDialog({ open, onOpenChange, apiKey, baseUrl, existingMode
         },
         body: JSON.stringify({
           apiKey,
-          baseUrl
+          baseUrl,
+          provider
         })
       })
 

@@ -91,15 +91,18 @@ async function prepareSecureAiConfig(): Promise<Record<string, unknown> | undefi
   if (aiConfig.currentProviderId && aiConfig.providers) {
     const currentProvider = aiConfig.providers.find(p => p.id === aiConfig.currentProviderId)
 
-    if (currentProvider && currentProvider.apiKey) {
-      // 情况3: 加密 API Key
+    // 对于 Ollama 供应商，API Key 是可选的
+    const isOllama = currentProvider?.name?.toLowerCase() === 'ollama' || currentProvider?.id?.toLowerCase() === 'ollama'
+
+    if (currentProvider && (currentProvider.apiKey || isOllama)) {
+      // 情况3: 加密 API Key (如果存在)
       const secureConfig = {
         useCustom: true,
         provider: {
           id: currentProvider.id,
           name: currentProvider.name,
-          // 使用无关的字段名并加密
-          auth: encryptSensitive(currentProvider.apiKey),
+          // 使用无关的字段名并加密 (仅当 API Key 存在时)
+          ...(currentProvider.apiKey && { auth: encryptSensitive(currentProvider.apiKey) }),
           baseUrl: currentProvider.baseUrl,
           modelId: currentProvider.modelId
         }

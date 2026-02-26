@@ -434,15 +434,7 @@ export const authService = {
   },
 
   async validateAIConfig(config: any) {
-    const mode = useStorageModeStore.getState().mode
-    if (mode === 'local') {
-      // In local mode, we can't easily validate via backend without auth.
-      // For now, we'll assume it's valid or maybe we should try to call the provider directly?
-      // But that might have CORS issues.
-      // Let's just return success for now to allow saving.
-      return { valid: true }
-    }
-
+    // Both local and cloud mode use the server endpoint for validation
     const response = await fetch('/api/auth/validate-ai-config', {
       method: 'POST',
       headers: {
