@@ -21,11 +21,12 @@ const USE_STREAMING = true
 const MAX_MERMAID_FIX_ATTEMPTS = 3
 
 // Throttle helper (ensures execution every wait ms during continuous calls)
+// Returns an object with the throttled function and a cancel method
 const throttle = (func: Function, wait: number) => {
   let timeout: ReturnType<typeof setTimeout> | null = null
   let lastArgs: any[] | null = null
 
-  return (...args: any[]) => {
+  const throttled = (...args: any[]) => {
     lastArgs = args
     if (!timeout) {
       timeout = setTimeout(() => {
@@ -37,6 +38,16 @@ const throttle = (func: Function, wait: number) => {
       }, wait)
     }
   }
+
+  throttled.cancel = () => {
+    if (timeout) {
+      clearTimeout(timeout)
+      timeout = null
+    }
+    lastArgs = null
+  }
+
+  return throttled
 }
 
 /**
@@ -290,6 +301,9 @@ export function useAIGenerate() {
 
       // Use the validated (possibly fixed) code
       finalCode = validatedCode
+
+      // Cancel any pending throttled updates to prevent stale updates after streaming ends
+      throttledUpdate.cancel()
 
       // Update content (AI generation auto-saves, so mark as saved)
       setContentFromVersion(finalCode)
@@ -558,6 +572,10 @@ export function useAIGenerate() {
       }
 
       finalCode = validatedCode
+
+      // Cancel any pending throttled updates to prevent stale updates after retry completes
+      throttledUpdate.cancel()
+
       setContentFromVersion(finalCode)
 
       metrics.endTime = Date.now()

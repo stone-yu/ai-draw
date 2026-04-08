@@ -3,7 +3,7 @@ import {authService} from '@/services/authService'
 import {useToast} from '@/hooks/useToast'
 import {useFormatDate} from '@/hooks/useTranslation'
 import {Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input} from '@/components/ui'
-import {Copy, KeyRound, Pencil, Trash2, User} from 'lucide-react'
+import {Copy, Eye, EyeOff, KeyRound, Pencil, Trash2, User} from 'lucide-react'
 import {useAuthStore} from '@/stores/authStore'
 import {useSystemStore} from '@/stores/systemStore'
 
@@ -38,6 +38,10 @@ export function UserManagementTabs() {
   const [loading, setLoading] = useState(true)
   const [selectedLocalUser, setSelectedLocalUser] = useState<LocalUser | null>(null)
   const [editingNickname, setEditingNickname] = useState('')
+  const [selectedUserForPassword, setSelectedUserForPassword] = useState<AppUser | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const { success, error: showError } = useToast()
   const { formatDate } = useFormatDate()
   const currentUser = useAuthStore((state) => state.user)
@@ -95,6 +99,25 @@ export function UserManagementTabs() {
       success(i18nTexts.adminRoleUpdateSuccess[language])
     } catch (_err) {
       showError(i18nTexts.adminRoleUpdateFailed[language])
+    }
+  }
+
+  const handlePasswordReset = async () => {
+    if (!selectedUserForPassword) return
+    if (newPassword.length < 6) {
+      showError(language === 'zh' ? '密码长度不能少于6位' : 'Password must be at least 6 characters')
+      return
+    }
+    setResetLoading(true)
+    try {
+      await authService.adminResetUserPassword(selectedUserForPassword.id, newPassword)
+      success(language === 'zh' ? '密码重置成功' : 'Password reset successfully')
+      setSelectedUserForPassword(null)
+      setNewPassword('')
+    } catch (_err) {
+      showError(language === 'zh' ? '密码重置失败' : 'Failed to reset password')
+    } finally {
+      setResetLoading(false)
     }
   }
 
@@ -202,6 +225,7 @@ export function UserManagementTabs() {
                         size="icon"
                         className="h-7 w-7"
                         title={i18nTexts.adminResetPassword[language]}
+                        onClick={() => { setSelectedUserForPassword(user); setNewPassword(''); setShowPassword(false) }}
                       >
                         <KeyRound className="h-3.5 w-3.5" />
                       </Button>
@@ -274,6 +298,46 @@ export function UserManagementTabs() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Reset Password Dialog */}
+      {selectedUserForPassword && (
+        <Dialog open={!!selectedUserForPassword} onOpenChange={(open) => !open && setSelectedUserForPassword(null)}>
+          <DialogContent className="rounded-2xl sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>{language === 'zh' ? `重置密码 - ${selectedUserForPassword.username}` : `Reset Password - ${selectedUserForPassword.username}`}</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder={language === 'zh' ? '输入新密码' : 'Enter new password'}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-muted">
+                {language === 'zh' ? '重置后，用户需要使用新密码登录。' : 'After reset, the user must log in with the new password.'}
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSelectedUserForPassword(null)} className="rounded-full">
+                {i18nTexts.profileCancel[language]}
+              </Button>
+              <Button onClick={handlePasswordReset} disabled={resetLoading} className="rounded-full">
+                {resetLoading ? (language === 'zh' ? '重置中...' : 'Resetting...') : (language === 'zh' ? '确认重置' : 'Confirm Reset')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Edit Local User Nickname Dialog */}

@@ -37,17 +37,6 @@ function checkAndConsumeQuota(response: Response): void {
   }
 }
 
-/**
- * 检查是否有足够配额（有密码时跳过检查）
- */
-function ensureQuotaAvailable(): void {
-  const mode = useStorageModeStore.getState().mode
-  if (mode === 'local') return
-
-  if (!quotaService.hasAccessPassword() && !quotaService.hasQuotaRemaining()) {
-    throw new Error('今日配额已用完，请明天再试或设置访问密码')
-  }
-}
 
 /**
  * 准备要发送到后端的 AI 配置
@@ -224,7 +213,6 @@ export const aiService = {
     }
 
     try {
-      ensureQuotaAvailable()
 
       // 使用安全的配置准备函数
       const aiConfig = await prepareSecureAiConfig()
@@ -333,7 +321,6 @@ export const aiService = {
     }
 
     try {
-      ensureQuotaAvailable()
 
       // 使用安全的配置准备函数
       const aiConfig = await prepareSecureAiConfig()
