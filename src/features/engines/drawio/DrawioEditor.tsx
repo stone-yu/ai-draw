@@ -251,10 +251,17 @@ export const DrawioEditor = forwardRef<DrawioEditorRef, DrawioEditorProps>(
 
     // Handle autosave event - 自动监听数值变化
     const handleAutoSave = useCallback((data: EventAutoSave) => {
-      if (data.xml) {
-        lastSavedXmlRef.current = data.xml
-        onChange?.(data.xml)
+      if (!data.xml) return
+      // 在外部 props.data 变更触发 load() 时，drawio iframe 内部会先短暂 reset
+      // 再渲染新内容，期间会上报一份默认空图（仅含 id="0"/id="1" 两个根 cell）。
+      // 如果让它走完 onChange 链路，会污染 lastSavedXmlRef 并使 useEffect 跳过真正的 reload，
+      // 导致流式生成结束后画布"消失"。
+      const cellCount = (data.xml.match(/<mxCell\b/g) || []).length
+      if (cellCount <= 2) {
+        return
       }
+      lastSavedXmlRef.current = data.xml
+      onChange?.(data.xml)
     }, [onChange])
 
     // Copy code handler

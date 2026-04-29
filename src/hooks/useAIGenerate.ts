@@ -262,14 +262,19 @@ export function useAIGenerate() {
       console.log('finalCode', finalCode)
       let validatedCode = finalCode
 
+      // Snapshot of what's currently on the canvas (last good frame from throttled streaming).
+      // Used as a safety fallback if post-stream validation fails for drawio.
+      const streamingFallback = useEditorStore.getState().currentContent
+
       if (engineType === 'drawio') {
         validatedCode = validateAndFixXml(validatedCode)
         // Note: For partial edits (operations), applyDiagramOperations already returns complete XML
-        // For full regeneration, we use replaceNodes to preserve viewport
-        // We can detect partial edits by checking if the response contained operations
-        const messages = usePayloadStore.getState().messages
-        const lastAssistantMessage = messages.filter(m => m.role === 'assistant').pop()
-        const isPartialEdit = typeof lastAssistantMessage?.content === 'string' && lastAssistantMessage.content.includes('<edit_operations>')
+        // For full regeneration, we use replaceNodes to preserve viewport.
+        // Detect partial edits by inspecting the assistant message we just generated
+        // (chatStore holds the accumulated AI response; payloadStore only has user/system messages).
+        const chatMessages = useChatStore.getState().messages
+        const ourAssistantMessage = chatMessages.find(m => m.id === assistantMsgId)
+        const isPartialEdit = typeof ourAssistantMessage?.content === 'string' && ourAssistantMessage.content.includes('<edit_operations>')
 
         if (!isPartialEdit) {
           // Full regeneration: merge to preserve viewport
@@ -296,14 +301,18 @@ export function useAIGenerate() {
       }
 
       if (!validation.valid) {
-        throw new Error(`Invalid ${engineType} output: ${validation.error}`)
+        // For drawio, the canvas already shows a usable streaming snapshot. Don't wipe it
+        // with an error toast — fall back to that snapshot and surface a warning instead.
+        if (engineType === 'drawio' && streamingFallback) {
+          console.warn(`[generate] Post-stream validation failed (${validation.error}); falling back to streaming snapshot (${streamingFallback.length} chars)`)
+          validatedCode = streamingFallback
+        } else {
+          throw new Error(`Invalid ${engineType} output: ${validation.error}`)
+        }
       }
 
       // Use the validated (possibly fixed) code
       finalCode = validatedCode
-
-      // Cancel any pending throttled updates to prevent stale updates after streaming ends
-      throttledUpdate.cancel()
 
       // Update content (AI generation auto-saves, so mark as saved)
       setContentFromVersion(finalCode)
@@ -396,6 +405,9 @@ export function useAIGenerate() {
       })
       showError(error instanceof Error ? error.message : 'Generation failed')
     } finally {
+      // Cancel any pending throttled update so a stale trailing call cannot
+      // overwrite currentContent after the try/catch has already settled.
+      throttledUpdate.cancel()
       setStreaming(false)
       setLoading(false)
     }
