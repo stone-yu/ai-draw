@@ -25,6 +25,7 @@ import {useChatStore} from '@/stores/chatStore'
 import {useSystemStore} from '@/stores/systemStore'
 import {ProjectRepository} from '@/services/projectRepository'
 import {VersionRepository} from '@/services/versionRepository'
+import {ChatRepository} from '@/services/chatRepository'
 import {authService} from '@/services/authService'
 import {generateThumbnail} from '@/lib/thumbnail'
 import {useToast} from '@/hooks/useToast'
@@ -57,7 +58,7 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
   const { success } = useToast()
 
   const { currentProject, currentContent, hasUnsavedChanges, setProject, setContentFromVersion, markAsSaved, reset: resetEditor } = useEditorStore()
-  const { clearMessages } = useChatStore()
+  const { clearMessages, setMessages } = useChatStore()
   const language = useSystemStore((state) => state.language)
   const i18nTexts = useSystemStore((state) => state.i18nTexts)
   const notifications = useSystemStore((state) => state.notifications)
@@ -127,6 +128,14 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
         const latestVersion = await VersionRepository.getLatest(id)
         if (latestVersion) {
           setContentFromVersion(latestVersion.content)
+        }
+
+        // Load chat history
+        try {
+          const history = await ChatRepository.getByProjectId(id)
+          setMessages(history)
+        } catch (err) {
+          console.error('Failed to load chat history:', err)
         }
       }
     } catch (error) {
