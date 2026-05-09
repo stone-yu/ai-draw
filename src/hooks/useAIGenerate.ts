@@ -90,6 +90,7 @@ export function useAIGenerate() {
     addMessage,
     updateMessage,
     setStreaming,
+    setAbortController,
   } = useChatStore()
 
   const {
@@ -135,6 +136,13 @@ export function useAIGenerate() {
       content: '',
       status: 'streaming',
     })
+
+    // Snapshot canvas content before generation, used to detect early abort
+    const preGenContent = useEditorStore.getState().currentContent
+
+    // Create abort controller for this request
+    const controller = new AbortController()
+    setAbortController(controller)
 
     setStreaming(true)
     setLoading(true)
@@ -240,7 +248,8 @@ export function useAIGenerate() {
             assistantMsgId,
             attachments,
             metrics,
-            throttledUpdate
+            throttledUpdate,
+            controller.signal,
           )
         }
       } else {
@@ -254,7 +263,8 @@ export function useAIGenerate() {
           assistantMsgId,
           attachments,
           metrics,
-          throttledUpdate
+          throttledUpdate,
+          controller.signal,
         )
       }
 
@@ -398,16 +408,38 @@ export function useAIGenerate() {
       }
 
     } catch (error) {
-      console.error('AI generation failed:', error)
-      updateMessage(assistantMsgId, {
-        content: `Error: ${error instanceof Error ? error.message : 'Generation failed'}`,
-        status: 'error',
-      })
-      showError(error instanceof Error ? error.message : 'Generation failed')
+      const isAbort = error instanceof DOMException && error.name === 'AbortError'
+
+      if (isAbort) {
+        // User-initiated stop: keep canvas content, save snapshot if it changed
+        throttledUpdate.cancel()
+        const finalContent = useEditorStore.getState().currentContent
+        if (currentProject && finalContent && finalContent !== preGenContent) {
+          try {
+            await VersionRepository.create({
+              projectId: currentProject.id,
+              content: finalContent,
+              changeSummary: 'AI 生成（用户中断）',
+            })
+            setContentFromVersion(finalContent)
+          } catch (versionErr) {
+            console.error('Failed to save aborted version:', versionErr)
+          }
+        }
+        updateMessage(assistantMsgId, {status: 'aborted'})
+      } else {
+        console.error('AI generation failed:', error)
+        updateMessage(assistantMsgId, {
+          content: `Error: ${error instanceof Error ? error.message : 'Generation failed'}`,
+          status: 'error',
+        })
+        showError(error instanceof Error ? error.message : 'Generation failed')
+      }
     } finally {
       // Cancel any pending throttled update so a stale trailing call cannot
       // overwrite currentContent after the try/catch has already settled.
       throttledUpdate.cancel()
+      setAbortController(null)
       setStreaming(false)
       setLoading(false)
     }
@@ -440,6 +472,10 @@ export function useAIGenerate() {
       content: 'Retrying...',
       status: 'streaming',
     })
+
+    const preGenContent = useEditorStore.getState().currentContent
+    const controller = new AbortController()
+    setAbortController(controller)
 
     setStreaming(true)
     setLoading(true)
@@ -536,10 +572,12 @@ export function useAIGenerate() {
             } else if (code) {
                throttledUpdate(code, false) // false = full regeneration
             }
-          }
+          },
+          undefined,
+          controller.signal,
         )
       } else {
-        response = await aiService.chat(payloadMessages)
+        response = await aiService.chat(payloadMessages, controller.signal)
       }
 
       // Parse response for operations or code
@@ -655,13 +693,34 @@ export function useAIGenerate() {
       }
 
     } catch (error) {
-      console.error('AI retry failed:', error)
-      updateMessage(assistantMsgId, {
-        content: `Error: ${error instanceof Error ? error.message : 'Retry failed'}`,
-        status: 'error',
-      })
-      showError(error instanceof Error ? error.message : 'Retry failed')
+      const isAbort = error instanceof DOMException && error.name === 'AbortError'
+
+      if (isAbort) {
+        throttledUpdate.cancel()
+        const finalContent = useEditorStore.getState().currentContent
+        if (currentProject && finalContent && finalContent !== preGenContent) {
+          try {
+            await VersionRepository.create({
+              projectId: currentProject.id,
+              content: finalContent,
+              changeSummary: 'AI 生成（用户中断）',
+            })
+            setContentFromVersion(finalContent)
+          } catch (versionErr) {
+            console.error('Failed to save aborted version:', versionErr)
+          }
+        }
+        updateMessage(assistantMsgId, {status: 'aborted'})
+      } else {
+        console.error('AI retry failed:', error)
+        updateMessage(assistantMsgId, {
+          content: `Error: ${error instanceof Error ? error.message : 'Retry failed'}`,
+          status: 'error',
+        })
+        showError(error instanceof Error ? error.message : 'Retry failed')
+      }
     } finally {
+      setAbortController(null)
       setStreaming(false)
       setLoading(false)
     }
@@ -759,7 +818,8 @@ export function useAIGenerate() {
     assistantMsgId: string,
     attachments?: Attachment[],
     metrics?: any,
-    debouncedUpdate?: (code: string) => void
+    debouncedUpdate?: (code: string) => void,
+    signal?: AbortSignal,
   ): Promise<string> => {
     updateMessage(assistantMsgId, {
       content: 'Generating diagram...',
@@ -799,11 +859,13 @@ export function useAIGenerate() {
           if (code && debouncedUpdate) {
              debouncedUpdate(code)
           }
-        }
+        },
+        undefined,
+        signal,
       )
       return extractCode(response, engineType)
     } else {
-      const response = await aiService.chat(messages)
+      const response = await aiService.chat(messages, signal)
       return extractCode(response, engineType)
     }
   }
@@ -820,7 +882,8 @@ export function useAIGenerate() {
     assistantMsgId: string,
     attachments?: Attachment[],
     metrics?: any,
-    debouncedUpdate?: (code: string, isPartialEdit?: boolean) => void
+    debouncedUpdate?: (code: string, isPartialEdit?: boolean) => void,
+    signal?: AbortSignal,
   ): Promise<string> => {
     const editPrompt = buildEditPrompt(currentCode, userInput)
     const editContent = buildMultimodalContent(editPrompt, attachments)
@@ -869,7 +932,9 @@ export function useAIGenerate() {
             console.log('[singlePhaseGeneration] Updating with code in stream, length:', code.length)
             debouncedUpdate(code, false) // false = full regeneration
           }
-        }
+        },
+        undefined,
+        signal,
       )
 
       // Parse final response
@@ -888,7 +953,7 @@ export function useAIGenerate() {
       // Otherwise return the full code
       return extractCode(response, engineType)
     } else {
-      const response = await aiService.chat(messages)
+      const response = await aiService.chat(messages, signal)
 
       // Parse response for operations
       const { operations } = parseResponse(response)
