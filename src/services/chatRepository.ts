@@ -16,7 +16,21 @@ export const ChatRepository = {
       .where('[projectId+timestamp]')
       .between([projectId, Dexie.minKey], [projectId, Dexie.maxKey])
       .toArray()
-    return stored.map(({projectId: _pid, ...msg}) => msg as ChatMessage)
+    return stored.map((s) => {
+      const msg: ChatMessage = {
+        id: s.id,
+        role: s.role,
+        content: s.content,
+        timestamp: s.timestamp,
+        status: s.status,
+      }
+      if (s.avatar !== undefined) msg.avatar = s.avatar
+      if (s.attachments !== undefined) msg.attachments = s.attachments
+      if (s.plan !== undefined) msg.plan = s.plan
+      if (s.code !== undefined) msg.code = s.code
+      if (s.metrics !== undefined) msg.metrics = s.metrics
+      return msg
+    })
   },
 
   /**
