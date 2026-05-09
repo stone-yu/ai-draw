@@ -12,6 +12,7 @@ import {
   MoveRight,
   RotateCcw,
   Send,
+  Square,
   User,
   X
 } from 'lucide-react'
@@ -50,7 +51,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const hasHandledInitialPrompt = useRef(false)
 
-  const { messages, isStreaming, initialPrompt, initialAttachments, clearInitialPrompt, clearMessages } = useChatStore()
+  const { messages, isStreaming, initialPrompt, initialAttachments, clearInitialPrompt, clearMessages, abort } = useChatStore()
   const isCanvasEmpty = useEditorStore(selectIsEmpty)
   const currentProject = useEditorStore((s) => s.currentProject)
   const { generate, retryLast } = useAIGenerate()
@@ -283,6 +284,8 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
         return { text: '绘制完成', icon: <CheckCircle2 className="h-4 w-4 text-green-500" /> }
       case 'error':
         return { text: '出错了', icon: <X className="h-4 w-4 text-red-500" /> }
+      case 'aborted':
+        return { text: '已停止', icon: <Square className="h-4 w-4 text-muted" /> }
       default:
         return { text: '处理中...', icon: <Loader2 className="h-4 w-4 animate-spin" /> }
     }
@@ -620,14 +623,26 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                 </span>
               )}
             </div>
-            <Button
-              onClick={() => handleSend()}
-              disabled={(!inputValue.trim() && attachments.length === 0) || isStreaming}
-              size="sm"
-              className="h-8"
-            >
-              <Send className="h-4 w-4 mr-1" />
-            </Button>
+            {isStreaming ? (
+              <Button
+                onClick={abort}
+                size="sm"
+                variant="destructive"
+                className="h-8"
+                title="停止生成"
+              >
+                <Square className="h-4 w-4 mr-1 fill-current" />
+              </Button>
+            ) : (
+              <Button
+                onClick={() => handleSend()}
+                disabled={!inputValue.trim() && attachments.length === 0}
+                size="sm"
+                className="h-8"
+              >
+                <Send className="h-4 w-4 mr-1" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
