@@ -23,7 +23,9 @@ import {selectIsEmpty, useEditorStore} from '@/stores/editorStore'
 import {useAIGenerate} from '@/hooks/useAIGenerate'
 import {useToast} from '@/hooks/useToast'
 import {aiService} from '@/services/aiService'
+import {ChatRepository} from '@/services/chatRepository'
 import {useSystemStore} from '@/stores/systemStore'
+import {usePayloadStore} from '@/stores/payloadStore'
 import {
   fileToBase64,
   parseDocument,
@@ -58,6 +60,7 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
   const { error: showError, success: showSuccess } = useToast()
   const language = useSystemStore((state) => state.language)
   const i18nTexts = useSystemStore((state) => state.i18nTexts)
+  const setPayloadMessages = usePayloadStore((s) => s.setMessages)
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -322,7 +325,20 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
               variant="ghost"
               size="icon"
               title={i18nTexts.chatNewConversation[language]}
-              onClick={clearMessages}
+              onClick={async () => {
+                if (messages.length === 0) return
+                const ok = window.confirm('确认新建会话？此操作会删除当前项目的聊天历史记录。')
+                if (!ok) return
+                if (currentProject) {
+                  try {
+                    await ChatRepository.deleteByProjectId(currentProject.id)
+                  } catch (err) {
+                    console.error('Failed to delete chat history:', err)
+                  }
+                }
+                clearMessages()
+                setPayloadMessages([])
+              }}
               disabled={isStreaming || messages.length === 0}
             >
               <MessageSquarePlus className="h-4 w-4" />
