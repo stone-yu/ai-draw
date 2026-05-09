@@ -58,7 +58,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
-  status: 'pending' | 'streaming' | 'complete' | 'error'
+  status: 'pending' | 'streaming' | 'complete' | 'error' | 'aborted'
   avatar?: string
   attachments?: Attachment[]
   plan?: string
@@ -69,6 +69,11 @@ export interface ChatMessage {
     planEndTime?: number
     endTime?: number
   }
+}
+
+// Persisted chat message (with project association for IndexedDB)
+export interface StoredChatMessage extends ChatMessage {
+  projectId: string
 }
 
 // Payload Message (Message Payload Store - OpenAI compatible)
