@@ -5,6 +5,7 @@ import {useStorageModeStore} from '@/stores/storageModeStore'
 import {useAuthStore} from '@/stores/authStore'
 import {VersionRepository} from '@/services/versionRepository'
 import {ProjectRepository} from '@/services/projectRepository'
+import {ChatRepository} from '@/services/chatRepository'
 import {authService} from '@/services/authService'
 import {buildEditPrompt, buildInitialPrompt, extractCode, SYSTEM_PROMPTS,} from '@/lib/promptBuilder'
 import {generateThumbnail} from '@/lib/thumbnail'
@@ -106,6 +107,17 @@ export function useAIGenerate() {
   const { setMessages } = usePayloadStore()
   const { success, error: showError } = useToast()
 
+  const persistMessage = async (msgId: string) => {
+    const msg = useChatStore.getState().messages.find((m) => m.id === msgId)
+    if (msg && currentProject) {
+      try {
+        await ChatRepository.upsert(currentProject.id, msg)
+      } catch (err) {
+        console.error('Failed to persist chat message:', err)
+      }
+    }
+  }
+
   /**
    * Generate diagram using AI with streaming support
    * @param userInput - User's description or modification request
@@ -123,12 +135,13 @@ export function useAIGenerate() {
     const systemPrompt = SYSTEM_PROMPTS[engineType]
 
     // Add user message to UI (with attachments)
-    addMessage({
+    const userMsgId = addMessage({
       role: 'user',
       content: userInput,
       status: 'complete',
       attachments,
     })
+    await persistMessage(userMsgId)
 
     // Add assistant message placeholder
     const assistantMsgId = addMessage({
@@ -136,6 +149,7 @@ export function useAIGenerate() {
       content: '',
       status: 'streaming',
     })
+    await persistMessage(assistantMsgId)
 
     // Snapshot canvas content before generation, used to detect early abort
     const preGenContent = useEditorStore.getState().currentContent
@@ -342,6 +356,7 @@ export function useAIGenerate() {
         status: 'complete',
         metrics
       })
+      await persistMessage(assistantMsgId)
 
       // Save version
       await VersionRepository.create({
@@ -427,12 +442,14 @@ export function useAIGenerate() {
           }
         }
         updateMessage(assistantMsgId, {status: 'aborted'})
+        await persistMessage(assistantMsgId)
       } else {
         console.error('AI generation failed:', error)
         updateMessage(assistantMsgId, {
           content: `Error: ${error instanceof Error ? error.message : 'Generation failed'}`,
           status: 'error',
         })
+        await persistMessage(assistantMsgId)
         showError(error instanceof Error ? error.message : 'Generation failed')
       }
     } finally {
@@ -635,6 +652,7 @@ export function useAIGenerate() {
         status: 'complete',
         metrics
       })
+      await persistMessage(assistantMsgId)
 
       await VersionRepository.create({
         projectId: currentProject.id,
@@ -711,12 +729,14 @@ export function useAIGenerate() {
           }
         }
         updateMessage(assistantMsgId, {status: 'aborted'})
+        await persistMessage(assistantMsgId)
       } else {
         console.error('AI retry failed:', error)
         updateMessage(assistantMsgId, {
           content: `Error: ${error instanceof Error ? error.message : 'Retry failed'}`,
           status: 'error',
         })
+        await persistMessage(assistantMsgId)
         showError(error instanceof Error ? error.message : 'Retry failed')
       }
     } finally {
