@@ -17,7 +17,7 @@ import {
 import {ENGINES} from '@/constants'
 import {ProjectRepository} from '@/services/projectRepository'
 import {GroupRepository} from '@/services/groupRepository'
-import type {EngineType, Group} from '@/types'
+import type {EngineType, Group, HtmlStyleVariant} from '@/types'
 
 import {useSystemStore} from '@/stores/systemStore'
 
@@ -26,6 +26,13 @@ interface CreateProjectDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+const HTML_STYLES: { value: HtmlStyleVariant; label: string; description: string }[] = [
+  { value: 'dark-tech', label: 'Dark Tech', description: '暗色背景 + JetBrains Mono + 网格，适合架构图' },
+  { value: 'flat-icon', label: 'Flat Icon', description: '简洁白底 Inter，适合文档/博客' },
+  { value: 'blueprint', label: 'Blueprint', description: '蓝图暗底 + 青色描边，技术示意感' },
+  { value: 'claude-official', label: 'Claude Official', description: '暖米色调，柔和友好' },
+]
+
 export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
   const navigate = useNavigate()
   const defaultEngine = useSystemStore((state) => state.defaultEngine)
@@ -33,6 +40,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
   const i18nTexts = useSystemStore((state) => state.i18nTexts)
   const [title, setTitle] = useState(i18nTexts.dialogUntitled[language])
   const [engine, setEngine] = useState<EngineType>(defaultEngine)
+  const [styleVariant, setStyleVariant] = useState<HtmlStyleVariant>('dark-tech')
   const [groupId, setGroupId] = useState<string>('uncategorized')
   const [groups, setGroups] = useState<Group[]>([])
   const [isCreating, setIsCreating] = useState(false)
@@ -41,6 +49,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
     if (open) {
       loadGroups()
       setEngine(defaultEngine)
+      setStyleVariant('dark-tech')
     }
   }, [open, defaultEngine])
 
@@ -61,6 +70,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
       const project = await ProjectRepository.create({
         title: title.trim(),
         engineType: engine,
+        styleVariant: engine === 'html' ? styleVariant : undefined,
         groupId: groupId === 'uncategorized' ? undefined : groupId,
       })
       onOpenChange(false)
@@ -78,6 +88,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
     if (!newOpen) {
       setTitle(i18nTexts.dialogUntitled[language])
       setEngine(defaultEngine)
+      setStyleVariant('dark-tech')
       setGroupId('uncategorized')
     }
     onOpenChange(newOpen)
@@ -119,20 +130,48 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
 
           <div>
             <label className="mb-2 block text-sm font-medium">{i18nTexts.dialogEngine[language]}</label>
-            <div className="rounded-xl border border-border bg-muted/30 p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-primary">
-                    {ENGINES.find(e => e.value === engine)?.label}
-                  </span>
-                </div>
+            <Select value={engine} onValueChange={(v) => setEngine(v as EngineType)}>
+              <SelectTrigger className="w-full rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ENGINES.map((e) => (
+                  <SelectItem key={e.value} value={e.value}>
+                    {e.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {ENGINES.find((e) => e.value === engine)?.description}
+            </p>
+          </div>
+
+          {engine === 'html' && (
+            <div>
+              <label className="mb-2 block text-sm font-medium">风格</label>
+              <div className="grid grid-cols-2 gap-2">
+                {HTML_STYLES.map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setStyleVariant(s.value)}
+                    className={`rounded-xl border p-3 text-left transition ${
+                      styleVariant === s.value
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border bg-muted/30 hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="text-sm font-medium">{s.label}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{s.description}</div>
+                  </button>
+                ))}
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                {i18nTexts.dialogEngineTip[language]}
+                创建后风格不可更改，如需切换请新建项目。
               </p>
             </div>
-          </div>
-          {/* Tips 区域 - 已移除 */}
+          )}
         </div>
         <DialogFooter>
           <Button
