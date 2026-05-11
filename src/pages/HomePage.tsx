@@ -91,6 +91,7 @@ export function HomePage() {
   const [previewProject, setPreviewProject] = useState<Project | null>(null)
   const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(true)
   const [quickStartHtmlStyle, setQuickStartHtmlStyle] = useState<HtmlStyleVariant>('dark-tech')
+  const [isStyleDialogOpen, setIsStyleDialogOpen] = useState(false)
 
   useEffect(() => {
     // 小屏幕默认收起公告，避免遮挡
@@ -182,7 +183,7 @@ export function HomePage() {
     }
   }
 
-  const handleQuickStart = async () => {
+  const handleQuickStart = () => {
     if (!prompt.trim()) return
 
     if (storageMode === 'cloud' && !isAuthenticated()) {
@@ -190,12 +191,23 @@ export function HomePage() {
       return
     }
 
+    // For html engine, ask the user which style first. Otherwise proceed.
+    if (defaultEngine === 'html') {
+      setIsStyleDialogOpen(true)
+      return
+    }
+
+    executeQuickStart()
+  }
+
+  const executeQuickStart = async (styleOverride?: HtmlStyleVariant) => {
     setIsLoading(true)
     try {
+      const variant = styleOverride ?? quickStartHtmlStyle
       const project = await ProjectRepository.create({
         title: `Untitled-${Date.now()}`,
         engineType: defaultEngine,
-        styleVariant: defaultEngine === 'html' ? quickStartHtmlStyle : undefined,
+        styleVariant: defaultEngine === 'html' ? variant : undefined,
       })
 
       // 转换文件附件为 Attachment 类型
@@ -581,25 +593,6 @@ export function HomePage() {
 
                   <div className="h-3 w-[1px] bg-border mx-1" />
                   <ModelSelector />
-
-                  {defaultEngine === 'html' && (
-                    <>
-                      <div className="h-3 w-[1px] bg-border mx-1" />
-                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span>风格</span>
-                        <select
-                          value={quickStartHtmlStyle}
-                          onChange={(e) => setQuickStartHtmlStyle(e.target.value as HtmlStyleVariant)}
-                          disabled={isLoading}
-                          className="rounded border border-border bg-background px-2 py-1 text-xs text-primary outline-none focus:border-primary disabled:opacity-50"
-                        >
-                          {HTML_STYLES.map((s) => (
-                            <option key={s.value} value={s.value}>{s.label}</option>
-                          ))}
-                        </select>
-                      </label>
-                    </>
-                  )}
                 </div>
 
                 {/* 发送按钮 */}
@@ -819,6 +812,44 @@ export function HomePage() {
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
       />
+
+      {/* HTML Style Picker (only shown when quick-start engine is html) */}
+      <Dialog open={isStyleDialogOpen} onOpenChange={setIsStyleDialogOpen}>
+        <DialogContent className="rounded-2xl sm:max-w-md">
+          <div className="space-y-4 py-2">
+            <div>
+              <h3 className="text-base font-semibold text-primary">选择 HTML 风格</h3>
+              <p className="mt-1 text-xs text-muted-foreground">创建后风格不可更改，如需切换请新建项目。</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {HTML_STYLES.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => {
+                    setQuickStartHtmlStyle(s.value)
+                    setIsStyleDialogOpen(false)
+                    executeQuickStart(s.value)
+                  }}
+                  className={`rounded-xl border p-3 text-left transition ${
+                    quickStartHtmlStyle === s.value
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border bg-muted/30 hover:border-primary/50'
+                  }`}
+                >
+                  <div className="text-sm font-medium">{s.label}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{s.description}</div>
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setIsStyleDialogOpen(false)} className="rounded-full">
+                取消
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Project Preview Dialog */}
       <Dialog open={!!previewProject} onOpenChange={() => setPreviewProject(null)}>
