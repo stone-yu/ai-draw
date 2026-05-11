@@ -218,19 +218,15 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
           />
         )
       case 'html':
-        if (!styleVariant) {
-          return (
-            <div className="flex h-full items-center justify-center text-muted">
-              缺少风格变体（styleVariant）
-            </div>
-          )
-        }
+        // Fallback to 'dark-tech' if styleVariant is somehow missing on disk
+        // (e.g., an html project created before this guard was added). The
+        // repository now defaults at write time; this is the read-side net.
         return (
           <HtmlRenderer
             ref={htmlRef}
             key={projectKey}
             svg={currentContent}
-            styleVariant={styleVariant}
+            styleVariant={styleVariant ?? 'dark-tech'}
             title={currentProject?.title || ''}
             onChange={handleContentChange}
           />

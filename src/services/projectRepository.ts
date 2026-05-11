@@ -24,11 +24,17 @@ export const ProjectRepository = {
   }): Promise<Project> {
     const mode = useStorageModeStore.getState().mode
     const now = new Date()
+    // For html engine, default styleVariant to 'dark-tech' if caller didn't set
+    // one (e.g., HomePage quick-start uses only defaultEngine).
+    const styleVariant: HtmlStyleVariant | undefined =
+      data.engineType === 'html'
+        ? (data.styleVariant ?? 'dark-tech')
+        : undefined
     const project: Project = {
       id: uuidv4(),
       title: data.title,
       engineType: data.engineType,
-      styleVariant: data.styleVariant,
+      styleVariant,
       thumbnail: data.thumbnail || '',
       groupId: data.groupId,
       createdAt: now,
