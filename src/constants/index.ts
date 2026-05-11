@@ -5,6 +5,7 @@ export const ENGINES: { value: EngineType; label: string; description: string }[
   { value: 'mermaid', label: 'Mermaid', description: '基于文本的图表生成，适合快速绘制结构化图表' },
   { value: 'excalidraw', label: 'Excalidraw', description: '手绘风格白板工具，自由绘制，界面简洁直观' },
   { value: 'drawio', label: 'Draw.io', description: '专业级图表编辑器，功能丰富，适合复杂技术文档' },
+  { value: 'html', label: 'HTML 图', description: 'AI 生成 SVG 架构/技术图，4 种精选视觉风格，自带 HTML 外壳' },
 ]
 
 export const NAV_ITEMS = [
