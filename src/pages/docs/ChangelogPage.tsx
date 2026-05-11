@@ -11,9 +11,32 @@ interface ChangelogItem {
 
 const CHANGELOG_DATA: ChangelogItem[] = [
   {
+    version: 'v1.9.6',
+    date: '2026-05-11',
+    isLatest: true,
+    content: {
+      zh: `
+#### ✨ 新增能力
+- 新增与 AI 对话历史存储功能。
+- 新增 AI 思考过程中停止功能。
+- 新增模型提供商维度设置最大输出 Tokens 限制功能。
+#### 🛠 优化能力
+- 优化一般模型输出质量兼容的鲁棒性。
+    `,
+      en: `
+#### ✨ New Features
+- Added AI chat history persistence.
+- Added a stop button to interrupt AI generation while it is streaming.
+- Added per-provider max output tokens setting.
+#### 🛠 Improvements
+- Improved robustness when handling general models with varying output quality.
+    `
+    }
+  },
+  {
     version: 'v1.9.2',
     date: '2026-02-24',
-    isLatest: true,
+    isLatest: false,
     content: {
       zh: `
 #### 🛠 优化能力
