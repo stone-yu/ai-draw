@@ -456,6 +456,14 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                         </div>
                       )}
 
+                      {/* Streaming gap: think/plan closed (planEndTime set) but code not yet assembled */}
+                      {msg.plan && !msg.code && msg.status === 'streaming' && msg.metrics?.planEndTime && (
+                        <div className="flex items-center gap-2 text-xs text-muted">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>正在生成图表元素...</span>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-2 justify-between mt-1">
                         <div className="flex items-center gap-2">
                           {getStatusDisplay(msg.status).icon}
@@ -644,10 +652,10 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                 onClick={abort}
                 size="sm"
                 variant="destructive"
-                className="h-8"
+                className="h-8 w-8 p-0 rounded-full"
                 title="停止生成"
               >
-                <Square className="h-4 w-4 mr-1 fill-current" />
+                <Square className="h-3.5 w-3.5 fill-current" />
               </Button>
             ) : (
               <Button

@@ -68,6 +68,7 @@ async function prepareSecureAiConfig(): Promise<Record<string, unknown> | undefi
       apiKey?: string
       baseUrl?: string
       modelId?: string
+      maxTokens?: number
     }>
   }
 
@@ -93,7 +94,8 @@ async function prepareSecureAiConfig(): Promise<Record<string, unknown> | undefi
           // 使用无关的字段名并加密 (仅当 API Key 存在时)
           ...(currentProvider.apiKey && { auth: encryptSensitive(currentProvider.apiKey) }),
           baseUrl: currentProvider.baseUrl,
-          modelId: currentProvider.modelId
+          modelId: currentProvider.modelId,
+          ...(typeof currentProvider.maxTokens === 'number' && currentProvider.maxTokens > 0 && { maxTokens: currentProvider.maxTokens })
         }
       }
 

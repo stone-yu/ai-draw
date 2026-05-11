@@ -12,7 +12,7 @@ import {generateThumbnail} from '@/lib/thumbnail'
 import {aiService} from '@/services/aiService'
 import {validateContent} from '@/lib/validators'
 import {useToast} from '@/hooks/useToast'
-import {applyDiagramOperations, convertToLegalXml, parseResponse, replaceNodes, validateAndFixXml} from '@/lib/xmlUtils'
+import {applyDiagramOperations, convertToLegalXml, parseResponse, replaceNodes, stripThinkBlocks, validateAndFixXml} from '@/lib/xmlUtils'
 import type {Attachment, EngineType, PayloadMessage} from '@/types'
 
 // Enable streaming by default, can be configured
@@ -20,6 +20,21 @@ const USE_STREAMING = true
 
 // Maximum retry attempts for Mermaid auto-fix
 const MAX_MERMAID_FIX_ATTEMPTS = 3
+
+// Reject corrupted drawio XML — specifically the case where a prior DOMParser
+// failure leaked a <parsererror> element back into currentContent and subsequent
+// rounds amplify it. Gating setContent on this prevents the poison from
+// recirculating through replaceNodes on the next chunk.
+const isCleanDrawioXml = (xml: string): boolean => {
+  if (!xml || !xml.trim()) return false
+  if (xml.includes('parsererror')) return false
+  try {
+    const doc = new DOMParser().parseFromString(xml, 'text/xml')
+    return doc.getElementsByTagName('parsererror').length === 0
+  } catch {
+    return false
+  }
+}
 
 // Throttle helper (ensures execution every wait ms during continuous calls)
 // Returns an object with the throttled function and a cancel method
@@ -230,6 +245,10 @@ export function useAIGenerate() {
 
       // Update editor content if we have something valid-ish
       if (codeToRender && codeToRender.trim()) {
+        if (engineType === 'drawio' && !isCleanDrawioXml(codeToRender)) {
+          console.warn('[ThrottledUpdate] Skipping corrupted XML frame to avoid poisoning currentContent')
+          return
+        }
         try {
           console.log(`[ThrottledUpdate] Updating content`)
           setContent(codeToRender)
@@ -243,29 +262,16 @@ export function useAIGenerate() {
       let finalCode: string
 
       if (isInitial) {
-        // 暂时全都使用一步生成
-        const useTwoPhase = false
-
-        if (useTwoPhase) {
-          finalCode = await twoPhaseGeneration(
-            userInput,
-            engineType,
-            systemPrompt,
-            assistantMsgId,
-            attachments
-          )
-        } else {
-          finalCode = await singlePhaseInitialGeneration(
-            userInput,
-            engineType,
-            systemPrompt,
-            assistantMsgId,
-            attachments,
-            metrics,
-            throttledUpdate,
-            controller.signal,
-          )
-        }
+        finalCode = await singlePhaseInitialGeneration(
+          userInput,
+          engineType,
+          systemPrompt,
+          assistantMsgId,
+          attachments,
+          metrics,
+          throttledUpdate,
+          controller.signal,
+        )
       } else {
         // Single-phase for edits - use XML text context instead of thumbnail
         // This is more efficient and allows AI to do partial edits
@@ -298,7 +304,8 @@ export function useAIGenerate() {
         // (chatStore holds the accumulated AI response; payloadStore only has user/system messages).
         const chatMessages = useChatStore.getState().messages
         const ourAssistantMessage = chatMessages.find(m => m.id === assistantMsgId)
-        const isPartialEdit = typeof ourAssistantMessage?.content === 'string' && ourAssistantMessage.content.includes('<edit_operations>')
+        // Strip <think> first so reasoning-model chatter that mentions <edit_operations> doesn't false-trigger partial-edit mode.
+        const isPartialEdit = typeof ourAssistantMessage?.content === 'string' && stripThinkBlocks(ourAssistantMessage.content).includes('<edit_operations>')
 
         if (!isPartialEdit) {
           // Full regeneration: merge to preserve viewport
@@ -331,12 +338,29 @@ export function useAIGenerate() {
           console.warn(`[generate] Post-stream validation failed (${validation.error}); falling back to streaming snapshot (${streamingFallback.length} chars)`)
           validatedCode = streamingFallback
         } else {
-          throw new Error(`Invalid ${engineType} output: ${validation.error}`)
+          console.error('[generate] Validation failed with no streaming snapshot. validatedCode preview:', validatedCode?.substring(0, 500))
+          console.error('[generate] Original finalCode preview:', finalCode?.substring(0, 500))
+          console.error('[generate] validation.error:', validation.error)
+          throw new Error(
+            engineType === 'drawio'
+              ? 'AI 未输出可解析的 drawio 图表，请重试或调整提示词'
+              : `Invalid ${engineType} output: ${validation.error}`
+          )
         }
       }
 
       // Use the validated (possibly fixed) code
       finalCode = validatedCode
+
+      // Final corruption gate: never persist <parsererror>-poisoned XML.
+      if (engineType === 'drawio' && !isCleanDrawioXml(finalCode)) {
+        if (streamingFallback && isCleanDrawioXml(streamingFallback)) {
+          console.warn('[generate] Final XML corrupted; reverting to clean streaming snapshot')
+          finalCode = streamingFallback
+        } else {
+          throw new Error('Generated drawio XML is corrupted and no clean snapshot is available')
+        }
+      }
 
       // Update content (AI generation auto-saves, so mark as saved)
       setContentFromVersion(finalCode)
@@ -544,6 +568,10 @@ export function useAIGenerate() {
         }
       }
       if (codeToRender && codeToRender.trim()) {
+        if (engineType === 'drawio' && !isCleanDrawioXml(codeToRender)) {
+          console.warn('[ThrottledUpdate Retry] Skipping corrupted XML frame')
+          return
+        }
         try {
           console.log(`[ThrottledUpdate Retry] Updating content`)
           setContent(codeToRender)
@@ -565,30 +593,31 @@ export function useAIGenerate() {
 
             const { plan, code, operations } = parseResponse(accumulated)
 
-            if (plan && !metrics.planEndTime && accumulated.includes('</plan>')) {
+            if (plan && !metrics.planEndTime && (accumulated.includes('</plan>') || accumulated.includes('</think>'))) {
               metrics.planEndTime = Date.now()
+            }
+
+            let displayCode = code
+            if (engineType === 'drawio' && operations && operations.length > 0) {
+              try {
+                const currentContent = useEditorStore.getState().currentContent || `<mxfile><diagram name="Page-1" id="page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>`
+                const { result: editedXml } = applyDiagramOperations(currentContent, operations)
+                displayCode = editedXml
+                throttledUpdate(editedXml, true)
+              } catch (error) {
+                console.error('[retryLast] Error applying operations:', error)
+              }
+            } else if (code) {
+               throttledUpdate(code, false)
             }
 
             updateMessage(assistantMsgId, {
               content: accumulated,
               plan: plan || undefined,
-              code: code || undefined,
+              code: displayCode || undefined,
               metrics: { ...metrics },
               status: 'streaming'
             })
-
-            // For drawio, handle operations or code
-            if (engineType === 'drawio' && operations && operations.length > 0) {
-              try {
-                const currentContent = useEditorStore.getState().currentContent || `<mxfile><diagram name="Page-1" id="page-1"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>`
-                const { result: editedXml } = applyDiagramOperations(currentContent, operations)
-                throttledUpdate(editedXml, true) // true = isPartialEdit
-              } catch (error) {
-                console.error('[retryLast] Error applying operations:', error)
-              }
-            } else if (code) {
-               throttledUpdate(code, false) // false = full regeneration
-            }
           },
           undefined,
           controller.signal,
@@ -864,7 +893,7 @@ export function useAIGenerate() {
 
           const { plan, code } = parseResponse(accumulated)
 
-          if (metrics && plan && !metrics.planEndTime && accumulated.includes('</plan>')) {
+          if (metrics && plan && !metrics.planEndTime && (accumulated.includes('</plan>') || accumulated.includes('</think>'))) {
             metrics.planEndTime = Date.now()
           }
 
@@ -904,8 +933,9 @@ export function useAIGenerate() {
     metrics?: any,
     debouncedUpdate?: (code: string, isPartialEdit?: boolean) => void,
     signal?: AbortSignal,
+    userPromptOverride?: string,
   ): Promise<string> => {
-    const editPrompt = buildEditPrompt(currentCode, userInput)
+    const editPrompt = userPromptOverride ?? buildEditPrompt(currentCode, userInput)
     const editContent = buildMultimodalContent(editPrompt, attachments)
 
     const messages: PayloadMessage[] = [
@@ -923,35 +953,35 @@ export function useAIGenerate() {
 
           const { plan, code, operations } = parseResponse(accumulated)
 
-          if (metrics && plan && !metrics.planEndTime && accumulated.includes('</plan>')) {
+          if (metrics && plan && !metrics.planEndTime && (accumulated.includes('</plan>') || accumulated.includes('</think>'))) {
             metrics.planEndTime = Date.now()
           }
 
-          updateMessage(assistantMsgId, {
-            content: accumulated,
-            plan: plan || undefined,
-            code: code || undefined,
-            metrics,
-            status: 'streaming'
-          })
-
-          // For drawio, check if we have operations or full code
+          // Compute the assembled XML when AI is using operations so the chat panel
+          // CodeBlock has something to display (otherwise msg.code stays null and the
+          // user is left with just "AI 思考中..." between plan and final result).
+          let displayCode = code
           if (engineType === 'drawio' && operations && operations.length > 0) {
-            // Apply operations to current code for preview
             try {
-              console.log('[singlePhaseGeneration] Applying operations in stream, currentCode length:', currentCode.length)
               const { result: editedXml } = applyDiagramOperations(currentCode, operations)
-              console.log('[singlePhaseGeneration] Edited XML length:', editedXml.length)
+              displayCode = editedXml
               if (debouncedUpdate) {
-                debouncedUpdate(editedXml, true) // true = isPartialEdit
+                debouncedUpdate(editedXml, true)
               }
             } catch (error) {
               console.error('[singlePhaseGeneration] Error applying operations:', error)
             }
           } else if (code && debouncedUpdate) {
-            console.log('[singlePhaseGeneration] Updating with code in stream, length:', code.length)
-            debouncedUpdate(code, false) // false = full regeneration
+            debouncedUpdate(code, false)
           }
+
+          updateMessage(assistantMsgId, {
+            content: accumulated,
+            plan: plan || undefined,
+            code: displayCode || undefined,
+            metrics,
+            status: 'streaming'
+          })
         },
         undefined,
         signal,

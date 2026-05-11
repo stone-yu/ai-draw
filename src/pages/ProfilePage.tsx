@@ -43,6 +43,7 @@ interface Provider {
   apiKey: string
   modelId: string
   models?: string[]
+  maxTokens?: number
 }
 
 const PRESET_PROVIDERS = [
@@ -154,7 +155,8 @@ function UserAIConfigSection({
     baseUrl: '',
     apiKey: '',
     modelId: '',
-    models: []
+    models: [],
+    maxTokens: undefined
   })
 
   useEffect(() => {
@@ -600,6 +602,31 @@ function UserAIConfigSection({
                       )}
                    </div>
                 </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-muted">最大输出 Tokens（可选）</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={formData.maxTokens ?? ''}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    if (raw === '') {
+                      setFormData({ ...formData, maxTokens: undefined })
+                      return
+                    }
+                    const n = Number(raw)
+                    setFormData({
+                      ...formData,
+                      maxTokens: Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined
+                    })
+                  }}
+                  placeholder="留空则不限制，由模型默认上限决定"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  例如 gpt-4o-mini 上限 16384，超出会被 API 拒绝。
+                </p>
               </div>
             </div>
           </div>

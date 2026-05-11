@@ -2,12 +2,21 @@ import type { Env, Message } from './types'
 import { corsHeaders } from './cors'
 import { convertContentPartsToAnthropic } from './ai-providers'
 
-export async function streamOpenAI(messages: Message[], env: Env, exempt: boolean = false): Promise<Response> {
+export async function streamOpenAI(messages: Message[], env: Env, exempt: boolean = false, maxTokens?: number): Promise<Response> {
   const baseUrl = env.AI_BASE_URL
   const apiKey = env.AI_API_KEY
 
   if (!apiKey) {
     throw new Error('AI_API_KEY not configured')
+  }
+
+  const body: Record<string, unknown> = {
+    model: env.AI_MODEL_ID,
+    messages: messages,
+    stream: true,
+  }
+  if (typeof maxTokens === 'number' && maxTokens > 0) {
+    body.max_tokens = maxTokens
   }
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -16,12 +25,7 @@ export async function streamOpenAI(messages: Message[], env: Env, exempt: boolea
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: env.AI_MODEL_ID,
-      messages: messages,
-      max_tokens: 64000,
-      stream: true,
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {
