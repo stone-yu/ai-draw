@@ -10,6 +10,7 @@ import {buildEditPrompt, buildInitialPrompt, extractCode, getSystemPrompt,} from
 import {generateThumbnail} from '@/lib/thumbnail'
 import {aiService} from '@/services/aiService'
 import {validateContent} from '@/lib/validators'
+import {sanitizeSvg} from '@/lib/validators/html'
 import {useToast} from '@/hooks/useToast'
 import {applyDiagramOperations, convertToLegalXml, parseResponse, replaceNodes, validateAndFixXml} from '@/lib/xmlUtils'
 import type {Attachment, EngineType, PayloadMessage} from '@/types'
@@ -267,6 +268,10 @@ export function useAIGenerate() {
       // Snapshot of what's currently on the canvas (last good frame from throttled streaming).
       // Used as a safety fallback if post-stream validation fails for drawio.
       const streamingFallback = useEditorStore.getState().currentContent
+
+      if (engineType === 'html') {
+        validatedCode = sanitizeSvg(validatedCode)
+      }
 
       if (engineType === 'drawio') {
         validatedCode = validateAndFixXml(validatedCode)
@@ -564,6 +569,11 @@ export function useAIGenerate() {
       }
 
       let validatedCode = finalCode
+
+      if (engineType === 'html') {
+        validatedCode = sanitizeSvg(validatedCode)
+      }
+
       if (engineType === 'drawio') {
         validatedCode = validateAndFixXml(validatedCode)
         // Final merge to ensure viewport preservation

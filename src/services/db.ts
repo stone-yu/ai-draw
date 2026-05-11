@@ -20,5 +20,14 @@ db.version(1).stores({
   configs: 'key'
 });
 
+// v2: index styleVariant on projects for the html engine (no data migration
+// needed — the field is optional and old rows simply have it undefined).
+db.version(2).stores({
+  projects: 'id, title, engineType, styleVariant, groupId, createdAt, updatedAt',
+  groups: 'id, name, createdAt, updatedAt',
+  versions: 'id, projectId, timestamp',
+  configs: 'key'
+});
+
 export { db };
 
