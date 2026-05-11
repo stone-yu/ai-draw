@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Code,
   Download,
+  ExternalLink,
   FileText,
   History,
   Image,
@@ -416,6 +417,24 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
             </TooltipTrigger>
             <TooltipContent>{i18nTexts.editorSourceCodeTooltip[language]}</TooltipContent>
           </Tooltip>
+
+          {/* Open in new window — html engine only */}
+          {currentProject?.engineType === 'html' && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => canvasRef.current?.openInNewWindow()}
+                  className="gap-1.5"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="text-xs">新窗口预览</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>在新标签页中打开完整 HTML 预览</TooltipContent>
+            </Tooltip>
+          )}
 
           <div className="mx-1 h-4 w-px bg-border" />
 

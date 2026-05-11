@@ -36,6 +36,7 @@ export interface HtmlRendererRef {
   showSourceCode: () => void
   hideSourceCode: () => void
   toggleSourceCode: () => void
+  openInNewWindow: () => void
 }
 
 export const HtmlRenderer = forwardRef<HtmlRendererRef, HtmlRendererProps>(
@@ -120,6 +121,23 @@ export const HtmlRenderer = forwardRef<HtmlRendererRef, HtmlRendererProps>(
       }
     }, [svg])
 
+    const openInNewWindow = useCallback(() => {
+      // Open the full rendered HTML (shell + sanitized SVG) in a new tab as a
+      // blob URL. Blob URLs work in all browsers including those with strict
+      // popup blockers because we keep `noopener` semantics off (no opener
+      // reference needed; the new tab is purely a viewer).
+      const blob = new Blob([srcDoc], { type: 'text/html;charset=utf-8' })
+      const href = URL.createObjectURL(blob)
+      const win = window.open(href, '_blank')
+      if (!win) {
+        // Popup blocked — fall back to navigating the current tab? We prefer
+        // surfacing the URL so the user can right-click open. Just log.
+        console.warn('[HtmlRenderer] Popup blocked; preview URL:', href)
+      }
+      // Revoke after a generous delay so the new tab finishes parsing.
+      setTimeout(() => URL.revokeObjectURL(href), 60_000)
+    }, [srcDoc])
+
     useImperativeHandle(
       ref,
       () => ({
@@ -129,8 +147,9 @@ export const HtmlRenderer = forwardRef<HtmlRendererRef, HtmlRendererProps>(
         showSourceCode: () => setShowCodePanel(true),
         hideSourceCode: () => setShowCodePanel(false),
         toggleSourceCode: () => setShowCodePanel((p) => !p),
+        openInNewWindow,
       }),
-      [exportAsSvg, exportAsPng, exportAsSource],
+      [exportAsSvg, exportAsPng, exportAsSource, openInNewWindow],
     )
 
     const handleCopyCode = useCallback(async () => {

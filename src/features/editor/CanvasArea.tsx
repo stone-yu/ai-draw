@@ -13,6 +13,7 @@ export interface CanvasAreaRef {
   hideSourceCode: () => void
   toggleSourceCode: () => void
   getThumbnail: () => Promise<string>
+  openInNewWindow: () => void
 }
 
 interface CanvasAreaProps {
@@ -142,6 +143,12 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
         return drawioRef.current.getThumbnail()
       }
       return ''
+    },
+    openInNewWindow: () => {
+      // Only html engine supports rendered-HTML preview; other engines no-op.
+      if (engineType === 'html') {
+        htmlRef.current?.openInNewWindow()
+      }
     },
   }), [engineType])
 
