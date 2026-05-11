@@ -157,6 +157,18 @@ function extractCellIds(xml: string): string[] {
 export function extractCode(response: string, engineType: EngineType): string {
   let code = response.trim()
 
+  // Reasoning models (DeepSeek R1, Qwen QwQ, etc.) emit a <think>...</think>
+  // block before their real answer. The block often contains pseudo-SVG
+  // examples and natural-language code sketches; if we don't strip it first,
+  // the greedy <svg> regex below grabs from the first <svg-looking thing in
+  // the thinking down to the real </svg>, polluting the result with prose.
+  // Strategy: if a </think> appears anywhere, discard everything up to and
+  // including it. Works whether or not the opening <think> tag is present.
+  const lastThinkClose = code.lastIndexOf('</think>')
+  if (lastThinkClose !== -1) {
+    code = code.slice(lastThinkClose + '</think>'.length).trim()
+  }
+
   // Remove plan if present
   const planMatch = code.match(/<plan>[\s\S]*?<\/plan>/)
   if (planMatch) {
