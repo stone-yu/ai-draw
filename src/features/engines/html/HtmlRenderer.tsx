@@ -58,26 +58,30 @@ export const HtmlRenderer = forwardRef<HtmlRendererRef, HtmlRendererProps>(
       return buildSrcDoc(styleVariant, clean, title)
     }, [svg, styleVariant, title])
 
-    const downloadBlob = useCallback((data: string, mime: string, ext: string) => {
+    const downloadBlob = useCallback((data: string, mime: string, filename: string) => {
       const blob = new Blob([data], { type: mime })
       const href = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = href
-      link.download = `diagram-${Date.now()}${ext}`
+      link.download = filename
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      setTimeout(() => URL.revokeObjectURL(href), 100)
+      if (href.startsWith('blob:')) {
+        setTimeout(() => URL.revokeObjectURL(href), 100)
+      }
     }, [])
 
     const exportAsSvg = useCallback(() => {
       if (!svg) return
-      downloadBlob(svg, 'image/svg+xml', '.svg')
+      downloadBlob(svg, 'image/svg+xml', `diagram-${Date.now()}.svg`)
     }, [svg, downloadBlob])
 
+    // For the html engine, the "source" IS the SVG — same content, distinct
+    // filename so users can tell the downloads apart in their Downloads folder.
     const exportAsSource = useCallback(() => {
       if (!svg) return
-      downloadBlob(svg, 'image/svg+xml', '.svg')
+      downloadBlob(svg, 'image/svg+xml', `diagram-source-${Date.now()}.svg`)
     }, [svg, downloadBlob])
 
     const exportAsPng = useCallback(async () => {
