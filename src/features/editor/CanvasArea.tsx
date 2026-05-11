@@ -1,8 +1,9 @@
 import {type ForwardedRef, forwardRef, useCallback, useEffect, useImperativeHandle, useRef} from 'react'
-import {selectEngineType, useEditorStore} from '@/stores/editorStore'
+import {selectEngineType, selectStyleVariant, useEditorStore} from '@/stores/editorStore'
 import {MermaidRenderer, type MermaidRendererRef} from '@/features/engines/mermaid/MermaidRenderer'
 import {ExcalidrawEditor, type ExcalidrawEditorRef} from '@/features/engines/excalidraw/ExcalidrawEditor'
 import {DrawioEditor, type DrawioEditorRef} from '@/features/engines/drawio/DrawioEditor'
+import {HtmlRenderer, type HtmlRendererRef} from '@/features/engines/html/HtmlRenderer'
 
 export interface CanvasAreaRef {
   exportAsSvg: () => void
@@ -35,6 +36,8 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
   const mermaidRef = useRef<MermaidRendererRef | null>(null)
   const excalidrawRef = useRef<ExcalidrawEditorRef | null>(null)
   const drawioRef = useRef<DrawioEditorRef | null>(null)
+  const htmlRef = useRef<HtmlRendererRef | null>(null)
+  const styleVariant = useEditorStore(selectStyleVariant)
 
   // Expose methods via ref
   useImperativeHandle(ref, () => ({
@@ -49,6 +52,9 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
         case 'drawio':
           drawioRef.current?.exportAsSvg()
           break
+        case 'html':
+          htmlRef.current?.exportAsSvg()
+          break
       }
     },
     exportAsPng: () => {
@@ -61,6 +67,9 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
           break
         case 'drawio':
           drawioRef.current?.exportAsPng()
+          break
+        case 'html':
+          htmlRef.current?.exportAsPng()
           break
       }
     },
@@ -75,6 +84,9 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
         case 'drawio':
           drawioRef.current?.exportAsSource()
           break
+        case 'html':
+          htmlRef.current?.exportAsSource()
+          break
       }
     },
     showSourceCode: () => {
@@ -87,6 +99,9 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
           break
         case 'drawio':
           drawioRef.current?.showSourceCode()
+          break
+        case 'html':
+          htmlRef.current?.showSourceCode()
           break
       }
     },
@@ -101,6 +116,9 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
         case 'drawio':
           drawioRef.current?.hideSourceCode()
           break
+        case 'html':
+          htmlRef.current?.hideSourceCode()
+          break
       }
     },
     toggleSourceCode: () => {
@@ -113,6 +131,9 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
           break
         case 'drawio':
           drawioRef.current?.toggleSourceCode()
+          break
+        case 'html':
+          htmlRef.current?.toggleSourceCode()
           break
       }
     },
@@ -193,6 +214,24 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
             ref={drawioRef}
             key={projectKey}
             data={currentContent}
+            onChange={handleContentChange}
+          />
+        )
+      case 'html':
+        if (!styleVariant) {
+          return (
+            <div className="flex h-full items-center justify-center text-muted">
+              缺少风格变体（styleVariant）
+            </div>
+          )
+        }
+        return (
+          <HtmlRenderer
+            ref={htmlRef}
+            key={projectKey}
+            svg={currentContent}
+            styleVariant={styleVariant}
+            title={currentProject?.title || ''}
             onChange={handleContentChange}
           />
         )
