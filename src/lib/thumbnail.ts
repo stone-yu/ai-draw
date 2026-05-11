@@ -99,6 +99,20 @@ export async function generateExcalidrawThumbnail(jsonContent: string): Promise<
 }
 
 /**
+ * Generate thumbnail from a raw SVG string (for html engine).
+ * Re-uses the existing svgToDataUrl pipeline.
+ */
+export async function generateHtmlThumbnail(svg: string): Promise<string> {
+  if (!svg.trim()) return ''
+  try {
+    return await svgToDataUrl(svg)
+  } catch (error) {
+    console.error('Failed to generate HTML thumbnail:', error)
+    return ''
+  }
+}
+
+/**
  * Convert SVG string to PNG data URL
  */
 async function svgToDataUrl(svgString: string): Promise<string> {
@@ -179,6 +193,8 @@ export async function generateThumbnail(
       return generateMermaidThumbnail(content)
     case 'excalidraw':
       return generateExcalidrawThumbnail(content)
+    case 'html':
+      return generateHtmlThumbnail(content)
     case 'drawio':
       // Drawio thumbnails are generated via thumbnailGetter in editorStore
       // which uses DrawioEditor's native export for accurate rendering
