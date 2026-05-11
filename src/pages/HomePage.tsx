@@ -826,11 +826,7 @@ export function HomePage() {
                 <button
                   key={s.value}
                   type="button"
-                  onClick={() => {
-                    setQuickStartHtmlStyle(s.value)
-                    setIsStyleDialogOpen(false)
-                    executeQuickStart(s.value)
-                  }}
+                  onClick={() => setQuickStartHtmlStyle(s.value)}
                   className={`rounded-xl border p-3 text-left transition ${
                     quickStartHtmlStyle === s.value
                       ? 'border-primary bg-primary/5'
@@ -842,9 +838,24 @@ export function HomePage() {
                 </button>
               ))}
             </div>
-            <div className="flex justify-end">
-              <Button variant="ghost" size="sm" onClick={() => setIsStyleDialogOpen(false)} className="rounded-full">
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsStyleDialogOpen(false)}
+                className="rounded-full"
+              >
                 取消
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setIsStyleDialogOpen(false)
+                  executeQuickStart(quickStartHtmlStyle)
+                }}
+                className="rounded-full bg-primary text-surface hover:bg-primary/90"
+              >
+                使用「{HTML_STYLES.find((s) => s.value === quickStartHtmlStyle)?.label}」继续
               </Button>
             </div>
           </div>
