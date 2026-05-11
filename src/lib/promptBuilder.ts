@@ -8,6 +8,7 @@ export const SYSTEM_PROMPTS: Record<EngineType, string> = {
   mermaid: mermaidSystemPrompt,
   excalidraw: excalidrawSystemPrompt,
   drawio: drawioSystemPrompt,
+  html: '', // Placeholder - html engine prompts to be implemented in later task
 }
 
 /**

@@ -1,5 +1,12 @@
 // Engine Types
-export type EngineType = 'mermaid' | 'excalidraw' | 'drawio'
+export type EngineType = 'mermaid' | 'excalidraw' | 'drawio' | 'html'
+
+// HTML Engine style variants — picked at project creation, immutable after
+export type HtmlStyleVariant =
+  | 'dark-tech'
+  | 'flat-icon'
+  | 'blueprint'
+  | 'claude-official'
 
 // Group
 export interface Group {
@@ -15,6 +22,7 @@ export interface Project {
   id: string
   title: string
   engineType: EngineType
+  styleVariant?: HtmlStyleVariant // only when engineType === 'html'
   thumbnail: string // Base64 string for preview
   groupId?: string // Optional, if undefined/null -> 'Uncategorized'
   createdAt: Date
