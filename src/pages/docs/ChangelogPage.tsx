@@ -11,9 +11,30 @@ interface ChangelogItem {
 
 const CHANGELOG_DATA: ChangelogItem[] = [
   {
+    version: 'v1.10.0',
+    date: '2026-05-11',
+    isLatest: true,
+    content: {
+      zh: `
+#### ✨ 新增能力
+- 新增 HTML 引擎：AI 一次性输出 SVG 架构 / 技术图，前端按 4 种风格外壳（Dark Tech / Flat Icon / Blueprint / Claude Official）在沙箱 iframe 中渲染。
+- 项目创建时支持选择 HTML 风格变体，创建后不可更改。
+- HTML 引擎支持 Monaco SVG 源码查看 / 编辑，导出 SVG / PNG / 源码 三种格式。
+- 内置 SVG 净化：脚本、\`on*\` 事件、\`javascript:\` URL 一律清除。
+      `,
+      en: `
+#### ✨ New Features
+- Added HTML engine: AI generates SVG architecture / technical diagrams in one pass; the frontend renders them inside a sandboxed iframe with one of four style shells (Dark Tech / Flat Icon / Blueprint / Claude Official).
+- Style variant is selected at project creation time and cannot be changed afterwards.
+- HTML engine supports Monaco SVG source code viewing / editing, and exports as SVG / PNG / source.
+- Built-in SVG sanitization strips scripts, \`on*\` event handlers, and \`javascript:\` URLs.
+      `
+    }
+  },
+  {
     version: 'v1.9.2',
     date: '2026-02-24',
-    isLatest: true,
+    isLatest: false,
     content: {
       zh: `
 #### 🛠 优化能力
