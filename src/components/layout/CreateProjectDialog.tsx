@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui'
-import {ENGINES} from '@/constants'
+import {ENGINES, HTML_STYLES} from '@/constants'
 import {ProjectRepository} from '@/services/projectRepository'
 import {GroupRepository} from '@/services/groupRepository'
 import type {EngineType, Group, HtmlStyleVariant} from '@/types'
@@ -25,13 +25,6 @@ interface CreateProjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
-
-const HTML_STYLES: { value: HtmlStyleVariant; label: string; description: string }[] = [
-  { value: 'dark-tech', label: 'Dark Tech', description: '暗色背景 + JetBrains Mono + 网格，适合架构图' },
-  { value: 'flat-icon', label: 'Flat Icon', description: '简洁白底 Inter，适合文档/博客' },
-  { value: 'blueprint', label: 'Blueprint', description: '蓝图暗底 + 青色描边，技术示意感' },
-  { value: 'claude-official', label: 'Claude Official', description: '暖米色调，柔和友好' },
-]
 
 export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
   const navigate = useNavigate()

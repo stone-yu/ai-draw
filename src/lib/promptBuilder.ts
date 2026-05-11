@@ -163,10 +163,11 @@ export function extractCode(response: string, engineType: EngineType): string {
     code = code.replace(planMatch[0], '').trim()
   }
 
-  // For html engine, prefer the first <svg>...</svg> block in the response —
-  // tolerates stray prose or fences without false-positive extraction.
+  // For html engine, prefer the outermost <svg>...</svg> block in the response.
+  // Use a greedy match so nested <svg> (e.g., icon glyphs inside the main svg)
+  // do not cause us to truncate at the first inner </svg>.
   if (engineType === 'html') {
-    const svgMatch = code.match(/<svg\b[\s\S]*?<\/svg\s*>/i)
+    const svgMatch = code.match(/<svg\b[\s\S]*<\/svg\s*>/i)
     if (svgMatch) {
       return svgMatch[0].trim()
     }

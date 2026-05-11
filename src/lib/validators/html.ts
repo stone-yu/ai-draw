@@ -56,16 +56,21 @@ export function validateHtmlSvg(svg: string): ValidationResult {
     return { valid: false, error: 'Content is missing closing </svg>' }
   }
 
+  // DOMParser in 'image/svg+xml' mode is strict (rejects HTML-style unclosed
+  // tags, names starting with digits, etc.). The browser's SVG renderer is much
+  // more forgiving — and our content goes through a sandboxed iframe anyway —
+  // so a parse failure is a warning, not a hard rejection. The user can still
+  // see the rendered result and fix anything obviously broken in the Monaco
+  // editor.
   try {
     const parser = new DOMParser()
     const doc = parser.parseFromString(withoutProlog, 'image/svg+xml')
     const parserError = doc.querySelector('parsererror')
     if (parserError) {
-      return { valid: false, error: 'Malformed SVG: ' + (parserError.textContent || 'parse error') }
+      console.warn('[validateHtmlSvg] non-fatal SVG parse warning:', parserError.textContent)
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'SVG parse failed'
-    return { valid: false, error: message }
+    console.warn('[validateHtmlSvg] DOMParser threw, accepting content anyway:', err)
   }
 
   return { valid: true }

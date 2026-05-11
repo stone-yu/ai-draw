@@ -5,9 +5,9 @@ import {v4 as uuidv4} from 'uuid'
 import {Button, Dialog, DialogContent, Loading, Logo} from '@/components/ui'
 import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
 import {ModelSelector} from '@/components/ai/ModelSelector'
-import {QUICK_ACTION_ROWS, QUICK_ACTIONS} from '@/constants'
+import {HTML_STYLES, QUICK_ACTION_ROWS, QUICK_ACTIONS} from '@/constants'
 import {formatDate} from '@/lib/utils'
-import type {Attachment, DocumentAttachment, ImageAttachment, Project, UrlAttachment} from '@/types'
+import type {Attachment, DocumentAttachment, HtmlStyleVariant, ImageAttachment, Project, UrlAttachment} from '@/types'
 import {ProjectRepository} from '@/services/projectRepository'
 import {useChatStore} from '@/stores/chatStore'
 import {useAuthStore} from '@/stores/authStore'
@@ -90,6 +90,7 @@ export function HomePage() {
 
   const [previewProject, setPreviewProject] = useState<Project | null>(null)
   const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(true)
+  const [quickStartHtmlStyle, setQuickStartHtmlStyle] = useState<HtmlStyleVariant>('dark-tech')
 
   useEffect(() => {
     // 小屏幕默认收起公告，避免遮挡
@@ -194,6 +195,7 @@ export function HomePage() {
       const project = await ProjectRepository.create({
         title: `Untitled-${Date.now()}`,
         engineType: defaultEngine,
+        styleVariant: defaultEngine === 'html' ? quickStartHtmlStyle : undefined,
       })
 
       // 转换文件附件为 Attachment 类型
@@ -579,6 +581,25 @@ export function HomePage() {
 
                   <div className="h-3 w-[1px] bg-border mx-1" />
                   <ModelSelector />
+
+                  {defaultEngine === 'html' && (
+                    <>
+                      <div className="h-3 w-[1px] bg-border mx-1" />
+                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>风格</span>
+                        <select
+                          value={quickStartHtmlStyle}
+                          onChange={(e) => setQuickStartHtmlStyle(e.target.value as HtmlStyleVariant)}
+                          disabled={isLoading}
+                          className="rounded border border-border bg-background px-2 py-1 text-xs text-primary outline-none focus:border-primary disabled:opacity-50"
+                        >
+                          {HTML_STYLES.map((s) => (
+                            <option key={s.value} value={s.value}>{s.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </>
+                  )}
                 </div>
 
                 {/* 发送按钮 */}
