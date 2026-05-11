@@ -126,9 +126,17 @@ export function ThoughtBlock({ content, duration, isStreaming }: ThoughtBlockPro
 
   return (
     <div className="mb-2 rounded-lg border border-border bg-surface/50 overflow-hidden w-full group">
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-surface transition-colors"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setIsCollapsed(!isCollapsed)
+          }
+        }}
+        className="flex w-full cursor-pointer items-center justify-between px-3 py-2 text-xs hover:bg-surface transition-colors"
       >
         <div className="flex items-center gap-2 text-muted-foreground">
           {isStreaming ? (
@@ -163,7 +171,7 @@ export function ThoughtBlock({ content, duration, isStreaming }: ThoughtBlockPro
             <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
           )}
         </div>
-      </button>
+      </div>
 
       {!isCollapsed && (
         <div className="border-t border-border px-3 py-2 w-full">
@@ -285,9 +293,17 @@ export function CodeBlock({ code, language = 'xml', isStreaming, duration }: Cod
 
   return (
     <div className="mb-2 rounded-lg border border-border bg-surface overflow-hidden shadow-sm group w-full">
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="flex w-full items-center justify-between px-3 py-1.5 text-xs bg-muted/30 hover:bg-muted/50 transition-colors"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setIsCollapsed(!isCollapsed)
+          }
+        }}
+        className="flex w-full cursor-pointer items-center justify-between px-3 py-1.5 text-xs bg-muted/30 hover:bg-muted/50 transition-colors"
       >
         <div className="flex items-center gap-2 text-foreground">
           <Code2 className="h-3.5 w-3.5" />
@@ -324,7 +340,7 @@ export function CodeBlock({ code, language = 'xml', isStreaming, duration }: Cod
             <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
           )}
         </div>
-      </button>
+      </div>
 
       {!isCollapsed && (
         <div className="relative w-full">
