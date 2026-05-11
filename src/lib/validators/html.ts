@@ -20,7 +20,7 @@ export function sanitizeSvg(svg: string): string {
   // Matches both quoted and unquoted values.
   cleaned = cleaned.replace(/\s+on[a-zA-Z]+\s*=\s*"[^"]*"/g, '')
   cleaned = cleaned.replace(/\s+on[a-zA-Z]+\s*=\s*'[^']*'/g, '')
-  cleaned = cleaned.replace(/\s+on[a-zA-Z]+\s*=\s*[^\s>]+/g, '')
+  cleaned = cleaned.replace(/\s+on[a-zA-Z]+\s*=\s*(?![\s/])[^\s>]+/g, '')
 
   // Neutralize javascript: in href / xlink:href attributes.
   cleaned = cleaned.replace(
