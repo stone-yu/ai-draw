@@ -1,5 +1,5 @@
 import {v4 as uuidv4} from 'uuid'
-import type {EngineType, Project} from '@/types'
+import type {EngineType, HtmlStyleVariant, Project} from '@/types'
 import {authService} from './authService'
 import {useStorageModeStore} from '@/stores/storageModeStore'
 import {useAuthStore} from '@/stores/authStore'
@@ -18,6 +18,7 @@ export const ProjectRepository = {
   async create(data: {
     title: string
     engineType: EngineType
+    styleVariant?: HtmlStyleVariant
     thumbnail?: string
     groupId?: string
   }): Promise<Project> {
@@ -27,6 +28,7 @@ export const ProjectRepository = {
       id: uuidv4(),
       title: data.title,
       engineType: data.engineType,
+      styleVariant: data.styleVariant,
       thumbnail: data.thumbnail || '',
       groupId: data.groupId,
       createdAt: now,
