@@ -1,14 +1,36 @@
-import type {EngineType} from '@/types'
-import {drawioSystemPrompt, excalidrawSystemPrompt, mermaidSystemPrompt} from './prompts'
+import type { EngineType, HtmlStyleVariant } from '@/types'
+import {
+  drawioSystemPrompt,
+  excalidrawSystemPrompt,
+  mermaidSystemPrompt,
+  buildHtmlSystemPrompt,
+} from './prompts'
+
+export interface PromptCtx {
+  styleVariant?: HtmlStyleVariant
+}
+
+type PromptEntry = string | ((ctx: PromptCtx) => string)
 
 /**
- * System prompts for different engines
+ * System prompts for different engines. Use getSystemPrompt() to resolve.
  */
-export const SYSTEM_PROMPTS: Record<EngineType, string> = {
+export const SYSTEM_PROMPTS: Record<EngineType, PromptEntry> = {
   mermaid: mermaidSystemPrompt,
   excalidraw: excalidrawSystemPrompt,
   drawio: drawioSystemPrompt,
-  html: '', // Placeholder - html engine prompts to be implemented in later task
+  html: (ctx) => buildHtmlSystemPrompt(ctx.styleVariant ?? 'dark-tech'),
+}
+
+/**
+ * Resolve a system prompt for the given engine.
+ */
+export function getSystemPrompt(
+  engineType: EngineType,
+  ctx: PromptCtx = {},
+): string {
+  const entry = SYSTEM_PROMPTS[engineType]
+  return typeof entry === 'function' ? entry(ctx) : entry
 }
 
 /**

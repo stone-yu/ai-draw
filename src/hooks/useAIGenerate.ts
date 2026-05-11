@@ -6,7 +6,7 @@ import {useAuthStore} from '@/stores/authStore'
 import {VersionRepository} from '@/services/versionRepository'
 import {ProjectRepository} from '@/services/projectRepository'
 import {authService} from '@/services/authService'
-import {buildEditPrompt, buildInitialPrompt, extractCode, SYSTEM_PROMPTS,} from '@/lib/promptBuilder'
+import {buildEditPrompt, buildInitialPrompt, extractCode, getSystemPrompt,} from '@/lib/promptBuilder'
 import {generateThumbnail} from '@/lib/thumbnail'
 import {aiService} from '@/services/aiService'
 import {validateContent} from '@/lib/validators'
@@ -119,7 +119,9 @@ export function useAIGenerate() {
     if (!currentProject) return
 
     const engineType = currentProject.engineType
-    const systemPrompt = SYSTEM_PROMPTS[engineType]
+    const systemPrompt = getSystemPrompt(engineType, {
+      styleVariant: currentProject.styleVariant,
+    })
 
     // Add user message to UI (with attachments)
     addMessage({
@@ -426,7 +428,9 @@ export function useAIGenerate() {
     }
 
     const engineType = currentProject.engineType
-    const systemPrompt = SYSTEM_PROMPTS[engineType]
+    const systemPrompt = getSystemPrompt(engineType, {
+      styleVariant: currentProject.styleVariant,
+    })
 
     const assistantMsgId =
       assistantMessageId ??
