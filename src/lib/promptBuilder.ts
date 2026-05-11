@@ -163,6 +163,19 @@ export function extractCode(response: string, engineType: EngineType): string {
     code = code.replace(planMatch[0], '').trim()
   }
 
+  // For html engine, prefer the first <svg>...</svg> block in the response —
+  // tolerates stray prose or fences without false-positive extraction.
+  if (engineType === 'html') {
+    const svgMatch = code.match(/<svg\b[\s\S]*?<\/svg\s*>/i)
+    if (svgMatch) {
+      return svgMatch[0].trim()
+    }
+    // Fallback: strip fences only.
+    const fenced = code.match(/```(?:svg|xml|html)?\n?([\s\S]*?)```/i)
+    if (fenced) return fenced[1].trim()
+    return code
+  }
+
   // Remove markdown code blocks if present
   const codeBlockPatterns = [
     /```mermaid\n?([\s\S]*?)```/i,
