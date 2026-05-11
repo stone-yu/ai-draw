@@ -1461,7 +1461,7 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
   }
 
   try {
-    let apiKey, apiBaseUrl, modelId, providerId, providerName;
+    let apiKey, apiBaseUrl, modelId, providerId, providerName, maxTokens;
 
     // Check if request body has aiConfig (local mode with custom config OR local mode using system default)
     // This takes priority over user cloud config to support local mode in logged-in state
@@ -1492,11 +1492,14 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
             }
             apiBaseUrl = provider.baseUrl;
             modelId = provider.modelId;
+            if (typeof provider.maxTokens === 'number' && provider.maxTokens > 0) {
+              maxTokens = provider.maxTokens;
+            }
             foundCustomConfig = true;
             if (debug) {
               console.log('[AI Service] Using secure provider format from request body:', provider.name || provider.id);
               console.log('[AI Service] Provider config - apiKey:', apiKey ? '***' + apiKey.slice(-4) : 'empty',
-                          'baseUrl:', apiBaseUrl, 'modelId:', modelId);
+                          'baseUrl:', apiBaseUrl, 'modelId:', modelId, 'maxTokens:', maxTokens);
             }
          }
       }
@@ -1509,11 +1512,14 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
             apiKey = providerConfig.apiKey;
             apiBaseUrl = providerConfig.baseUrl;
             modelId = providerConfig.modelId;
+            if (typeof providerConfig.maxTokens === 'number' && providerConfig.maxTokens > 0) {
+              maxTokens = providerConfig.maxTokens;
+            }
             foundCustomConfig = true;
             if (debug) {
               console.log('[AI Service] Using legacy provider format from request body:', providerConfig.name || providerConfig.id);
               console.log('[AI Service] Provider config - apiKey:', apiKey ? '***' + apiKey.slice(-4) : 'empty',
-                          'baseUrl:', apiBaseUrl, 'modelId:', modelId);
+                          'baseUrl:', apiBaseUrl, 'modelId:', modelId, 'maxTokens:', maxTokens);
             }
          }
       }
@@ -1550,7 +1556,10 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
             apiKey = providerConfig.apiKey;
             apiBaseUrl = providerConfig.baseUrl;
             modelId = providerConfig.modelId;
-            if (debug) console.log(`[AI Service] Using user cloud custom provider: ${providerConfig.name}`);
+            if (typeof providerConfig.maxTokens === 'number' && providerConfig.maxTokens > 0) {
+              maxTokens = providerConfig.maxTokens;
+            }
+            if (debug) console.log(`[AI Service] Using user cloud custom provider: ${providerConfig.name}, maxTokens: ${maxTokens}`);
           } else {
             apiKey = user.aiConfig.apiKey;
             apiBaseUrl = user.aiConfig.baseUrl;
@@ -1599,14 +1608,19 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
         headers['Authorization'] = `Bearer ${apiKey}`;
       }
 
+      const upstreamBody = {
+        model: modelId,
+        messages: req.body.messages,
+        stream: req.body.stream
+      };
+      if (typeof maxTokens === 'number' && maxTokens > 0) {
+        upstreamBody.max_tokens = maxTokens;
+      }
+
       const response = await fetch(`${apiBaseUrl}/chat/completions`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          model: modelId,
-          messages: req.body.messages,
-          stream: req.body.stream
-        }),
+        body: JSON.stringify(upstreamBody),
         signal: controller.signal
       });
 

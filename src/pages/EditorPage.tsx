@@ -25,6 +25,7 @@ import {useChatStore} from '@/stores/chatStore'
 import {useSystemStore} from '@/stores/systemStore'
 import {ProjectRepository} from '@/services/projectRepository'
 import {VersionRepository} from '@/services/versionRepository'
+import {ChatRepository} from '@/services/chatRepository'
 import {authService} from '@/services/authService'
 import {generateThumbnail} from '@/lib/thumbnail'
 import {useToast} from '@/hooks/useToast'
@@ -57,7 +58,7 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
   const { success } = useToast()
 
   const { currentProject, currentContent, hasUnsavedChanges, setProject, setContentFromVersion, markAsSaved, reset: resetEditor } = useEditorStore()
-  const { clearMessages } = useChatStore()
+  const { clearMessages, setMessages } = useChatStore()
   const language = useSystemStore((state) => state.language)
   const i18nTexts = useSystemStore((state) => state.i18nTexts)
   const notifications = useSystemStore((state) => state.notifications)
@@ -89,22 +90,25 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
       return
     }
 
-    loadProject(projectId)
+    let cancelled = false
+    loadProject(projectId, () => cancelled)
+    return () => {
+      cancelled = true
+    }
   }, [projectId, mode])
 
-  const loadProject = async (id: string) => {
+  const loadProject = async (id: string, isCancelled: () => boolean) => {
     setIsLoading(true)
-    // Clear previous project data before loading new one
     resetEditor()
     clearMessages()
     try {
       if (mode === 'example') {
         const project = await authService.getExampleProject(id)
+        if (isCancelled()) return
         if (!project) {
           navigate('/profile')
           return
         }
-        // Convert ExampleProject to Project type (dates are strings in JSON)
         const projectData = {
           ...project,
           createdAt: new Date(project.createdAt),
@@ -115,6 +119,7 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
         setContentFromVersion(project.content)
       } else {
         const project = await ProjectRepository.getById(id)
+        if (isCancelled()) return
         if (!project) {
           navigate('/projects')
           return
@@ -123,17 +128,26 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
         setProject(project)
         setEditedTitle(project.title)
 
-        // Load latest version content
         const latestVersion = await VersionRepository.getLatest(id)
+        if (isCancelled()) return
         if (latestVersion) {
           setContentFromVersion(latestVersion.content)
         }
+
+        try {
+          const history = await ChatRepository.getByProjectId(id)
+          if (isCancelled()) return
+          setMessages(history)
+        } catch (err) {
+          console.error('Failed to load chat history:', err)
+        }
       }
     } catch (error) {
+      if (isCancelled()) return
       console.error('Failed to load project:', error)
       navigate(mode === 'example' ? '/profile' : '/projects')
     } finally {
-      setIsLoading(false)
+      if (!isCancelled()) setIsLoading(false)
     }
   }
 

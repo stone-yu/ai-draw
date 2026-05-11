@@ -28,9 +28,36 @@ export interface AnthropicContentPart {
   }
 }
 
+export interface AIConfigProvider {
+  id?: string
+  name?: string
+  auth?: string
+  baseUrl?: string
+  modelId?: string
+  maxTokens?: number
+}
+
+export interface AIConfigLegacyProvider {
+  id?: string
+  name?: string
+  apiKey?: string
+  baseUrl?: string
+  modelId?: string
+  maxTokens?: number
+}
+
+export interface AIConfig {
+  useCustom?: boolean
+  provider?: AIConfigProvider
+  currentProviderId?: string
+  providers?: AIConfigLegacyProvider[]
+  maxTokens?: number
+}
+
 export interface ChatRequest {
   messages: Message[]
   stream?: boolean
+  aiConfig?: AIConfig
 }
 
 export interface OpenAIResponse {

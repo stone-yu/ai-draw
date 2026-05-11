@@ -96,8 +96,45 @@ function parseXmlTags(xml: string): ParsedTag[] {
  * @returns A legal XML string with properly closed tags and removed incomplete mxCell elements.
  */
 export function convertToLegalXml(xmlString: string): string {
-    // This regex will match either self-closing <mxCell .../> or a block element
-    // <mxCell ...> ... </mxCell>. Unfinished ones are left out because they don't match.
+    // Sanitize raw <br> / <b> etc. inside attribute values first, otherwise the
+    // mxCell regex below stops at the first `>` from that pseudo-tag and yields
+    // a structurally broken cell.
+    xmlString = escapeAttrAngleBrackets(xmlString)
+    xmlString = fixUnclosedMxCellTags(xmlString)
+    xmlString = dedupeAttributes(xmlString)
+    xmlString = flattenNestedMxCells(xmlString)
+
+    // Primary path: if the (cleaned, flattened) input is well-formed XML, just
+    // walk the DOM. This avoids the regex's non-greedy `[\s\S]*?` problem where
+    // it terminates at the first inner </mxCell> in nested structures and
+    // produces unbalanced cell blocks. Only fall back to regex when DOMParser
+    // can't make sense of the input (typically partial streaming chunks).
+    try {
+        const doc = new DOMParser().parseFromString(xmlString, 'text/xml')
+        if (doc.getElementsByTagName('parsererror').length === 0) {
+            const allCells = Array.from(doc.getElementsByTagName('mxCell'))
+            let out = '<root>\n'
+            const serializer = new XMLSerializer()
+            for (const cell of allCells) {
+                if (cell.parentElement?.tagName === 'mxCell') continue
+                // Remove orphan <mxPoint> without `as=` outside <Array as="points">.
+                const hasArrayPoints = cell.querySelector('Array[as="points"]')
+                if (!hasArrayPoints) {
+                    const orphans = Array.from(cell.getElementsByTagName('mxPoint'))
+                        .filter(p => !p.hasAttribute('as'))
+                    for (const p of orphans) p.parentNode?.removeChild(p)
+                }
+                out += '    ' + serializer.serializeToString(cell) + '\n'
+            }
+            out += '</root>'
+            return out
+        }
+    } catch { /* fall through to regex path */ }
+
+    // Fallback path (streaming partials etc.): regex-based extraction with the
+    // per-cell parse check. Same caveats as before, will drop cells whose
+    // nested children make the non-greedy match unbalanced, but we get here
+    // only when the input wasn't parseable as a whole anyway.
     const regex = /<mxCell\b[^>]*(?:\/>|>([\s\S]*?)<\/mxCell>)/g
     let match: RegExpExecArray | null
     let result = "<root>\n"
@@ -133,6 +170,19 @@ export function convertToLegalXml(xmlString: string): string {
             /&(?!(?:lt|gt|amp|quot|apos|#[0-9]+|#x[0-9a-fA-F]+);)/g,
             "&amp;",
         )
+
+        // Per-cell parse check: if this single cell is malformed (e.g. unmatched
+        // </Array>, stray reserved-name elements), skip it instead of polluting
+        // the whole batch and forcing replaceNodes into its empty-fallback path.
+        try {
+            const test = new DOMParser().parseFromString(`<root>${cellContent}</root>`, 'text/xml')
+            if (test.getElementsByTagName('parsererror').length > 0) {
+                console.warn('[convertToLegalXml] dropping malformed cell:', cellContent.substring(0, 120))
+                continue
+            }
+        } catch {
+            continue
+        }
 
         // Indent each line of the matched block for readability.
         const formatted = cellContent
@@ -1150,8 +1200,553 @@ export function autoFixXml(xml: string): { fixed: string; fixes: string[] } {
  * @param xml - The XML string to validate and potentially fix
  * @returns Object with validation result, fixed XML if applicable, and fixes applied
  */
+/**
+ * Some models emit edge mxCells with source/target stuck on the inner
+ * <mxGeometry> instead of on the <mxCell> opening tag. drawio then renders the
+ * edge as disconnected (no endpoints). Move those attrs up to the mxCell.
+ */
+export function normalizeEdgeAttrs(xml: string): string {
+    return xml.replace(
+        /<mxCell\b([^>]*?\bedge="1"[^>]*?)>([\s\S]*?)<\/mxCell>/g,
+        (full, openAttrs, body) => {
+            const hasSource = /\bsource\s*=/.test(openAttrs)
+            const hasTarget = /\btarget\s*=/.test(openAttrs)
+            const geomMatch = body.match(/<mxGeometry\b([^>]*?)(\/?)>/)
+            if (!geomMatch) return full
+            const geomAttrs = geomMatch[1]
+            const srcMatch = !hasSource ? geomAttrs.match(/\bsource\s*=\s*"([^"]+)"/) : null
+            const tgtMatch = !hasTarget ? geomAttrs.match(/\btarget\s*=\s*"([^"]+)"/) : null
+            if (!srcMatch && !tgtMatch) return full
+            let newGeomAttrs = geomAttrs
+            let newOpenAttrs = openAttrs
+            if (srcMatch) {
+                newGeomAttrs = newGeomAttrs.replace(/\s*\bsource\s*=\s*"[^"]+"/, '')
+                newOpenAttrs += ` source="${srcMatch[1]}"`
+            }
+            if (tgtMatch) {
+                newGeomAttrs = newGeomAttrs.replace(/\s*\btarget\s*=\s*"[^"]+"/, '')
+                newOpenAttrs += ` target="${tgtMatch[1]}"`
+            }
+            const newGeomTag = `<mxGeometry${newGeomAttrs}${geomMatch[2]}>`
+            const newBody = body.replace(geomMatch[0], newGeomTag)
+            return `<mxCell${newOpenAttrs}>${newBody}</mxCell>`
+        }
+    )
+}
+
+/**
+ * Escape `<` / `>` inside double-quoted attribute values. Reasoning-model
+ * outputs frequently embed raw `<br>` or `<b>` in `value="..."`, which makes
+ * the whole XML unparseable (the `<` ends the attribute / starts a new tag).
+ * After escaping, drawio's `html=1` cells still render the literal `<br>` as
+ * a line break because that's the XML-decoded attribute value.
+ */
+export function escapeAttrAngleBrackets(xml: string): string {
+    return xml.replace(
+        /(\b[a-zA-Z][a-zA-Z0-9_:.-]*)\s*=\s*"([^"]*)"/g,
+        (_m, attrName, value) => `${attrName}="${value.replace(/</g, '&lt;').replace(/>/g, '&gt;')}"`,
+    )
+}
+
+/**
+ * Salvage the malformation `<mxCell ATTRS <mxGeometry ...//>` (no `>` to close
+ * the mxCell opening tag, mxGeometry inlined, no `</mxCell>` to close the cell).
+ * Convert to `<mxCell ATTRS><mxGeometry .../></mxCell>`. Without this, every
+ * such cell is dropped by the per-cell parse check and the diagram comes back
+ * empty. Run BEFORE the DOMParser-based fixers — otherwise DOMParser bails out
+ * on the first one of these and the rest of the chain becomes a no-op.
+ */
+export function fixUnclosedMxCellTags(xml: string): string {
+    return xml.replace(
+        /<mxCell\b([^>]*?)\s+(<mxGeometry\b[^>]*\/>)/g,
+        '<mxCell$1>$2</mxCell>'
+    )
+}
+
+/**
+ * XML doesn't allow duplicate attribute names on a single element, but some
+ * models emit `<mxCell ... value="X" ... value="X" />` (often a copy-paste
+ * artifact). DOMParser hard-fails on this. Keep the first occurrence per tag.
+ */
+export function dedupeAttributes(xml: string): string {
+    return xml.replace(/<([a-zA-Z_][\w:.-]*)\b([^>]*)>/g, (full, tagName, attrs) => {
+        const seen = new Set<string>()
+        const cleaned = attrs.replace(
+            /\s+([a-zA-Z_][\w:.-]*)\s*=\s*("[^"]*"|'[^']*')/g,
+            (m: string, name: string) => {
+                if (seen.has(name)) return ''
+                seen.add(name)
+                return m
+            },
+        )
+        return `<${tagName}${cleaned}>`
+    })
+}
+
+/**
+ * Some models split a single labelled shape into two cells: a "shape" cell
+ * with style but no value, plus a "text" cell parented to the shape carrying
+ * the (often HTML) value but no style. drawio renders the text cell with its
+ * own (default) style, which means html=1 isn't applied and HTML is shown as
+ * literal text. Merge such child-value cells into their parent and drop them.
+ */
+export function mergeChildValueIntoParent(xml: string): string {
+    try {
+        const doc = new DOMParser().parseFromString(xml, 'text/xml')
+        if (doc.getElementsByTagName('parsererror').length > 0) return xml
+        const cells = Array.from(doc.getElementsByTagName('mxCell'))
+        const byId = new Map<string, Element>()
+        for (const c of cells) {
+            const id = c.getAttribute('id')
+            if (id) byId.set(id, c)
+        }
+        // Collect every id referenced as source/target — these cells are needed
+        // by edges and MUST NOT be merged-out, even if they look like text helpers.
+        const referencedByEdges = new Set<string>()
+        for (const c of cells) {
+            if (c.getAttribute('edge') !== '1') continue
+            const src = c.getAttribute('source')
+            const tgt = c.getAttribute('target')
+            if (src) referencedByEdges.add(src)
+            if (tgt) referencedByEdges.add(tgt)
+        }
+        const toRemove: Element[] = []
+        for (const cell of cells) {
+            const parentId = cell.getAttribute('parent')
+            if (!parentId || parentId === '0' || parentId === '1') continue
+            const value = cell.getAttribute('value')
+            if (!value) continue
+            const cellId = cell.getAttribute('id')
+            if (cellId && referencedByEdges.has(cellId)) continue
+            const parentCell = byId.get(parentId)
+            if (!parentCell) continue
+            if (parentCell.getAttribute('vertex') !== '1') continue
+            if (parentCell.getAttribute('value')) continue
+            parentCell.setAttribute('value', value)
+            if (!parentCell.hasAttribute('style') && cell.hasAttribute('style')) {
+                parentCell.setAttribute('style', cell.getAttribute('style') || '')
+            }
+            toRemove.push(cell)
+        }
+        if (toRemove.length === 0) return xml
+        toRemove.forEach(c => c.parentNode?.removeChild(c))
+        return new XMLSerializer().serializeToString(doc)
+    } catch {
+        return xml
+    }
+}
+
+/**
+ * Edge mxCells need `<Array as="points">` inside `<mxGeometry>`, and the
+ * geometry itself needs `as="geometry"`. Some models put Array as a sibling
+ * of mxGeometry (direct child of mxCell) and omit `as="geometry"`, which makes
+ * drawio's mxGeometry decoder reject the geometry ("Could not add object
+ * mxGeometry") and silently drop all waypoints. Fix both at once.
+ */
+export function fixEdgeArrayPoints(xml: string): string {
+    try {
+        const doc = new DOMParser().parseFromString(xml, 'text/xml')
+        if (doc.getElementsByTagName('parsererror').length > 0) return xml
+        const cells = Array.from(doc.getElementsByTagName('mxCell'))
+        let changed = false
+        for (const cell of cells) {
+            const directGeoms = Array.from(cell.children).filter(c => c.tagName === 'mxGeometry')
+            for (const g of directGeoms) {
+                if (!g.hasAttribute('as')) {
+                    g.setAttribute('as', 'geometry')
+                    changed = true
+                }
+            }
+            const orphanArrays = Array.from(cell.children).filter(
+                c => c.tagName === 'Array' && c.getAttribute('as') === 'points'
+            )
+            if (orphanArrays.length === 0) continue
+            const targetGeom = directGeoms[0]
+            if (!targetGeom) continue
+            for (const arr of orphanArrays) {
+                targetGeom.appendChild(arr)
+                changed = true
+            }
+        }
+        if (!changed) return xml
+        return new XMLSerializer().serializeToString(doc)
+    } catch {
+        return xml
+    }
+}
+
+/**
+ * Drop extra <mxGeometry> children on the same mxCell. drawio uses the first
+ * one and the extras either confuse the renderer or trigger "Could not add
+ * object mxPoint" warnings when they wrap orphan points.
+ */
+export function dedupeMxGeometry(xml: string): string {
+    try {
+        const doc = new DOMParser().parseFromString(xml, 'text/xml')
+        if (doc.getElementsByTagName('parsererror').length > 0) return xml
+        const cells = Array.from(doc.getElementsByTagName('mxCell'))
+        let changed = false
+        for (const cell of cells) {
+            const geoms = Array.from(cell.children).filter(c => c.tagName === 'mxGeometry')
+            if (geoms.length <= 1) continue
+            // Prefer the first geometry that has both x/y AND width/height (a "real" one),
+            // else fall back to the first.
+            const sized = geoms.find(g => g.hasAttribute('x') && g.hasAttribute('width'))
+            const keep = sized ?? geoms[0]
+            for (const g of geoms) {
+                if (g !== keep) {
+                    g.parentNode?.removeChild(g)
+                    changed = true
+                }
+            }
+        }
+        if (!changed) return xml
+        return new XMLSerializer().serializeToString(doc)
+    } catch {
+        return xml
+    }
+}
+
+/**
+ * Assign synthetic ids to edge mxCells that lack one. drawio decodes such
+ * edges as "cell null" and emits beforeDecode warnings; even when it then
+ * generates an internal id, the noise is confusing.
+ */
+export function assignMissingEdgeIds(xml: string): string {
+    try {
+        const doc = new DOMParser().parseFromString(xml, 'text/xml')
+        if (doc.getElementsByTagName('parsererror').length > 0) return xml
+        const cells = Array.from(doc.getElementsByTagName('mxCell'))
+        const usedIds = new Set<string>()
+        for (const c of cells) {
+            const id = c.getAttribute('id')
+            if (id) usedIds.add(id)
+        }
+        let counter = 1
+        const nextId = () => {
+            while (usedIds.has(`auto_edge_${counter}`)) counter++
+            const id = `auto_edge_${counter}`
+            usedIds.add(id)
+            counter++
+            return id
+        }
+        let changed = false
+        for (const cell of cells) {
+            if (cell.getAttribute('edge') !== '1') continue
+            if (cell.hasAttribute('id')) continue
+            cell.setAttribute('id', nextId())
+            changed = true
+        }
+        if (!changed) return xml
+        return new XMLSerializer().serializeToString(doc)
+    } catch {
+        return xml
+    }
+}
+
+/**
+ * Strip <img> tags from inside attribute values. Reasoning models occasionally
+ * fabricate base64 PNG data URIs that look plausible but don't actually decode,
+ * leaving broken-image icons (or worse, walls of raw base64 text) inside cell
+ * labels. Removing the <img> entirely is less ugly than the broken render.
+ */
+export function stripImgTagsFromValues(xml: string): string {
+    return xml.replace(/&lt;img\b[^&]*?(?:\/&gt;|&gt;(?:[^&]|&(?!lt;\/img&gt;))*?&lt;\/img&gt;)/gi, '')
+}
+
+/**
+ * Some models forget to set `vertex="1"` / `edge="1"` on cells, even though they
+ * provide `style`, `value`, `parent`, geometry, etc. drawio without an explicit
+ * type flag renders the cell as a default/invisible shape, so the entire
+ * diagram looks like just the edges with no nodes. Infer the type from context:
+ *   - cell with `source` or `target` → edge="1"
+ *   - cell with <mxGeometry x="..." width="..."/> → vertex="1"
+ *   - otherwise leave alone (might be a group/layer cell)
+ */
+export function ensureVertexEdgeFlag(xml: string): string {
+    try {
+        const doc = new DOMParser().parseFromString(xml, 'text/xml')
+        if (doc.getElementsByTagName('parsererror').length > 0) return xml
+        const cells = Array.from(doc.getElementsByTagName('mxCell'))
+        let changed = false
+        for (const cell of cells) {
+            const id = cell.getAttribute('id')
+            if (id === '0' || id === '1') continue
+            if (cell.hasAttribute('vertex') || cell.hasAttribute('edge')) continue
+            if (cell.hasAttribute('source') || cell.hasAttribute('target')) {
+                cell.setAttribute('edge', '1')
+                changed = true
+                continue
+            }
+            const geom = Array.from(cell.children).find(c => c.tagName === 'mxGeometry')
+            if (geom && geom.hasAttribute('x') && geom.hasAttribute('width')) {
+                cell.setAttribute('vertex', '1')
+                changed = true
+            }
+        }
+        if (!changed) return xml
+        return new XMLSerializer().serializeToString(doc)
+    } catch {
+        return xml
+    }
+}
+
+/**
+ * vertex / edge mxCells without a `parent` attribute end up parented to root
+ * (cell id="0") instead of the default layer (cell id="1"), so they are not
+ * rendered on the visible layer. Default the parent to "1" for any vertex or
+ * edge that's missing it. Skip the structural cells with id="0" and id="1".
+ */
+export function ensureCellParent(xml: string): string {
+    try {
+        const doc = new DOMParser().parseFromString(xml, 'text/xml')
+        if (doc.getElementsByTagName('parsererror').length > 0) return xml
+        const cells = Array.from(doc.getElementsByTagName('mxCell'))
+        let changed = false
+        for (const cell of cells) {
+            const id = cell.getAttribute('id')
+            if (id === '0' || id === '1') continue
+            const isVertex = cell.getAttribute('vertex') === '1'
+            const isEdge = cell.getAttribute('edge') === '1'
+            if ((isVertex || isEdge) && !cell.hasAttribute('parent')) {
+                cell.setAttribute('parent', '1')
+                changed = true
+            }
+        }
+        if (!changed) return xml
+        return new XMLSerializer().serializeToString(doc)
+    } catch {
+        return xml
+    }
+}
+
+/**
+ * Vertex mxCells without an mxGeometry child render at (0,0) with zero size,
+ * i.e. invisibly. Some models forget the geometry entirely. As a salvage
+ * pass, lay missing vertices out in a coarse grid so the user at least sees
+ * the nodes and can rearrange manually.
+ */
+export function ensureVertexGeometry(xml: string): string {
+    try {
+        const doc = new DOMParser().parseFromString(xml, 'text/xml')
+        if (doc.getElementsByTagName('parsererror').length > 0) return xml
+
+        const cells = Array.from(doc.getElementsByTagName('mxCell'))
+        const orphans: Element[] = []
+        for (const cell of cells) {
+            if (cell.getAttribute('vertex') !== '1') continue
+            const hasGeom = Array.from(cell.children).some(c => c.tagName === 'mxGeometry')
+            if (!hasGeom) orphans.push(cell)
+        }
+        if (orphans.length === 0) return xml
+
+        const COLS = 4, W = 160, H = 60, PAD_X = 40, PAD_Y = 80, START_X = 40, START_Y = 40
+        orphans.forEach((cell, i) => {
+            const col = i % COLS, row = Math.floor(i / COLS)
+            const geom = doc.createElement('mxGeometry')
+            geom.setAttribute('x', String(START_X + col * (W + PAD_X)))
+            geom.setAttribute('y', String(START_Y + row * (H + PAD_Y)))
+            geom.setAttribute('width', String(W))
+            geom.setAttribute('height', String(H))
+            geom.setAttribute('as', 'geometry')
+            cell.appendChild(geom)
+        })
+        return new XMLSerializer().serializeToString(doc)
+    } catch {
+        return xml
+    }
+}
+
+/**
+ * Reasoning models sometimes nest mxCells inside other mxCells to express the
+ * parent/child relationship via DOM. drawio's model is flat — all mxCells are
+ * siblings under <root>, with the logical parent expressed by the `parent`
+ * attribute. Also, our streaming regex extractor stops at the first inner
+ * </mxCell> and yields structurally broken cells.
+ *
+ * Fix: MOVE nested mxCells out to be direct children of <root> (preserving
+ * their `parent` attribute), instead of deleting them. Deleting also kills
+ * legitimate business cells that the model just happened to DOM-nest.
+ */
+export function flattenNestedMxCells(xml: string): string {
+    try {
+        const doc = new DOMParser().parseFromString(xml, 'text/xml')
+        if (doc.getElementsByTagName('parsererror').length > 0) return xml
+        const root = doc.querySelector('mxGraphModel > root') || doc.querySelector('root')
+        if (!root) return xml
+        let changed = false
+        for (let i = 0; i < 1000; i++) {
+            const cells = Array.from(doc.getElementsByTagName('mxCell'))
+            const nested = cells.find(c => c.parentElement?.tagName === 'mxCell')
+            if (!nested) break
+            root.appendChild(nested)
+            changed = true
+        }
+        if (!changed) return xml
+        return new XMLSerializer().serializeToString(doc)
+    } catch {
+        return xml
+    }
+}
+
+/**
+ * Compute a sensible viewport (dx / dy on <mxGraphModel>) based on the bbox of
+ * the actual vertex cells, so drawio's load() lands the camera on the content
+ * instead of somewhere off in canvas space (the "tiny diagram in bottom-right"
+ * symptom). We pick dx / dy that would center the bbox in a typical iframe
+ * viewport; if drawio interprets dx / dy with a different sign convention,
+ * the worst case is content showing up shifted but still visible — which is
+ * already strictly better than the current behavior.
+ *
+ * Skips silently when:
+ *   - There are no vertex cells (nothing to center on);
+ *   - The XML doesn't parse (let other passes handle it);
+ *   - The user has already set dx / dy (don't fight their manual pan).
+ */
+export function setViewportToContentCenter(xml: string): string {
+    try {
+        const doc = new DOMParser().parseFromString(xml, 'text/xml')
+        if (doc.getElementsByTagName('parsererror').length > 0) return xml
+        const model = doc.querySelector('mxGraphModel')
+        if (!model) return xml
+        if (model.hasAttribute('dx') || model.hasAttribute('dy')) return xml
+
+        const cells = Array.from(doc.getElementsByTagName('mxCell'))
+        let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity
+        let counted = 0
+        for (const cell of cells) {
+            if (cell.getAttribute('vertex') !== '1') continue
+            const geom = Array.from(cell.children).find(c => c.tagName === 'mxGeometry')
+            if (!geom) continue
+            const x = parseFloat(geom.getAttribute('x') || '')
+            const y = parseFloat(geom.getAttribute('y') || '')
+            const w = parseFloat(geom.getAttribute('width') || '0')
+            const h = parseFloat(geom.getAttribute('height') || '0')
+            if (!isFinite(x) || !isFinite(y)) continue
+            xmin = Math.min(xmin, x)
+            ymin = Math.min(ymin, y)
+            xmax = Math.max(xmax, x + (isFinite(w) ? w : 0))
+            ymax = Math.max(ymax, y + (isFinite(h) ? h : 0))
+            counted++
+        }
+        if (counted === 0 || !isFinite(xmin)) return xml
+
+        // Estimate iframe viewport; precise size isn't known here, but for
+        // typical editor chrome ~1100×750 is close enough that content lands
+        // in view even if off by a couple hundred pixels.
+        const IFRAME_W = 1100
+        const IFRAME_H = 750
+        const cx = (xmin + xmax) / 2
+        const cy = (ymin + ymax) / 2
+        const dx = Math.round(IFRAME_W / 2 - cx)
+        const dy = Math.round(IFRAME_H / 2 - cy)
+
+        model.setAttribute('dx', String(dx))
+        model.setAttribute('dy', String(dy))
+        return new XMLSerializer().serializeToString(doc)
+    } catch {
+        return xml
+    }
+}
+
+/**
+ * Strip AI-fabricated viewport offsets from <mxGraphModel>. Negative or
+ * non-integer dx/dy cause drawio to land the viewport away from the content
+ * (the "diagram in the bottom-right of a huge canvas" symptom). User pans are
+ * persisted by drawio's autoSave path, not this validator, so we're safe to
+ * drop them here.
+ */
+export function stripFabricatedViewport(xml: string): string {
+    return xml.replace(/<mxGraphModel\b[^>]*>/g, tag =>
+        tag.replace(/\s+dx="[^"]*"/g, '').replace(/\s+dy="[^"]*"/g, '')
+    )
+}
+
+/**
+ * Ensure <mxGraphModel> has the standard drawio attributes. When the merge path
+ * inherits an attribute-less <mxGraphModel> (e.g. from the empty fallback
+ * template), drawio's viewport ends up in an unpredictable place and the page
+ * dimensions are unset, producing the "huge empty canvas with content in the
+ * corner" symptom. Add any missing attrs; never overwrite user-set values.
+ */
+export function ensureMxGraphModelDefaults(xml: string): string {
+    // NOTE: intentionally omit dx / dy. drawio uses its internal auto-fit logic
+    // when the model has no explicit view translation; setting dx="0" dy="0"
+    // pins the viewport to canvas origin and pushes content (positioned at
+    // x=100+, y=100+) into the bottom-right of the iframe.
+    const defaults: [string, string][] = [
+        ['grid', '1'],
+        ['gridSize', '10'],
+        ['guides', '1'],
+        ['tooltips', '1'],
+        ['connect', '1'],
+        ['arrows', '1'],
+        ['fold', '1'],
+        ['page', '1'],
+        ['pageScale', '1'],
+        ['pageWidth', '827'],
+        ['pageHeight', '1169'],
+        ['math', '0'],
+        ['shadow', '0'],
+    ]
+    return xml.replace(/<mxGraphModel\b([^>]*)>/g, (_full, attrs) => {
+        let next = attrs
+        for (const [key, val] of defaults) {
+            if (!new RegExp(`\\b${key}\\s*=`).test(next)) {
+                next += ` ${key}="${val}"`
+            }
+        }
+        return `<mxGraphModel${next}>`
+    })
+}
+
+/**
+ * Drop edges whose source/target is missing in a way that drawio can't repair:
+ * literal string "null" or empty string. Both are common AI mistakes; both
+ * inflate layout bounds and trigger beforeDecode warnings (and the empty form
+ * tends to come paired with a malformed self-close + trailing content that
+ * later passes can't disentangle).
+ */
+export function dropDanglingNullEdges(xml: string): string {
+    const danglingValue = `"(?:null|-1|)"`
+    // Self-closing with optional orphan trailing <mxGeometry .../></mxCell> tail
+    // (the model emits `... target=""/>` then mistakenly appends content + closing).
+    const selfClose = new RegExp(
+        `<mxCell\\b[^>]*\\bedge="1"[^>]*\\b(?:source|target)=${danglingValue}[^>]*\\/>` +
+        `(?:\\s*<mxGeometry\\b[^>]*(?:\\/>|>[\\s\\S]*?<\\/mxGeometry>)\\s*<\\/mxCell>)?` +
+        `\\s*`,
+        'g'
+    )
+    const blockClose = new RegExp(
+        `<mxCell\\b[^>]*\\bedge="1"[^>]*\\b(?:source|target)=${danglingValue}[^>]*>[\\s\\S]*?<\\/mxCell>\\s*`,
+        'g'
+    )
+    return xml.replace(selfClose, '').replace(blockClose, '')
+}
+
 export function validateAndFixXml(xml: string): string {
     if (!xml || !xml.trim()) return ''
+
+    xml = escapeAttrAngleBrackets(xml)
+    xml = fixUnclosedMxCellTags(xml)
+    xml = dedupeAttributes(xml)
+    xml = flattenNestedMxCells(xml)
+    xml = mergeChildValueIntoParent(xml)
+    xml = stripImgTagsFromValues(xml)
+    xml = fixEdgeArrayPoints(xml)
+    xml = dedupeMxGeometry(xml)
+    xml = assignMissingEdgeIds(xml)
+    xml = ensureVertexEdgeFlag(xml)
+    xml = ensureCellParent(xml)
+    xml = ensureVertexGeometry(xml)
+    xml = normalizeEdgeAttrs(xml)
+    xml = dropDanglingNullEdges(xml)
+    xml = stripFabricatedViewport(xml)
+    // setViewportToContentCenter intentionally not called: drawio ignores our
+    // dx/dy when load() is invoked on an already-initialized iframe. The fit
+    // is now handled in DrawioEditor by remounting the iframe so drawio's own
+    // auto-fit runs during the new init.
+    xml = ensureMxGraphModelDefaults(xml)
 
     // First validation attempt
     const error = validateMxCellStructure(xml)
@@ -1514,23 +2109,56 @@ export function parseEditOperations(content: string): { operations: DiagramOpera
 }
 
 /**
+ * Strip reasoning-model <think>...</think> blocks. Closed blocks are removed;
+ * an unclosed <think> (still streaming or never terminated by the model) is
+ * dropped from its opening up to the next real XML root start, so downstream
+ * XML detection isn't fooled by pseudo-XML the model wrote inside its reasoning.
+ */
+export function stripThinkBlocks(content: string): string {
+  let result = content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+  const thinkIdx = result.search(/<think>/i)
+  if (thinkIdx === -1) return result
+  const xmlIdx = result.slice(thinkIdx).search(/<(\?xml|mxGraphModel|mxfile)\b/i)
+  if (xmlIdx === -1) return result.substring(0, thinkIdx).trim()
+  return (result.substring(0, thinkIdx) + result.substring(thinkIdx + xmlIdx)).trim()
+}
+
+/**
  * Extract plan and code from the AI response
  */
 export function parseResponse(content: string): { plan: string | null, code: string | null, operations: DiagramOperation[] | null } {
-  let plan: string | null = null
+  // Capture <think> for ThoughtBlock display before we strip it from downstream parsing.
+  // Reasoning models put long-form reasoning here; surfacing it as plan content lets the
+  // UI show the "思考过程" block even when the model never emits an explicit <plan>.
+  let thinkText: string | null = null
+  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/i)
+  if (thinkMatch) {
+    thinkText = thinkMatch[1].trim()
+  } else if (/<think>/i.test(content)) {
+    // <think> opened but not yet closed: stream partial reasoning into thinkText; no code yet.
+    const idx = content.search(/<think>/i)
+    thinkText = content.substring(idx + '<think>'.length).trim()
+    return { plan: thinkText, code: null, operations: null }
+  }
+
+  content = stripThinkBlocks(content)
+  let plan: string | null = thinkText
   let code: string | null = null
   let remaining = content
 
-  // 1. Try to find <plan> tags
+  // 1. Try to find <plan> tags (used only as fallback when no <think>)
   const planMatch = content.match(/<plan>([\s\S]*?)<\/plan>/)
   if (planMatch) {
-    plan = planMatch[1].trim()
+    if (!plan) plan = planMatch[1].trim()
     remaining = content.replace(planMatch[0], '').trim()
   } else if (content.includes('<plan>')) {
-    // Partial plan (streaming)
-    const start = content.indexOf('<plan>')
-    plan = content.substring(start + 6).trim()
-    return { plan, code: null, operations: null }
+    if (!plan) {
+      const start = content.indexOf('<plan>')
+      plan = content.substring(start + 6).trim()
+      return { plan, code: null, operations: null }
+    }
+    // think already provides display content; strip partial plan tail from remaining
+    remaining = content.substring(0, content.indexOf('<plan>')).trim()
   }
 
   // 2. Check for edit operations first

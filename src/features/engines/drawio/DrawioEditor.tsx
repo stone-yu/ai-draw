@@ -9,6 +9,41 @@ import {useSystemStore} from '@/stores/systemStore'
 
 type ExportFormat = 'svg' | 'png'
 
+// Guard against mid-stream XML that would make drawio's iframe loader either
+// (a) call atob() on non-base64 (empty <diagram> body), or (b) hit libxml2's
+// "attributes construct error" on a malformed attribute (unescaped &, unclosed
+// quote, etc.). Cheap two-pass: shape check + DOMParser sanity check.
+function isDrawioLoadSafe(xml: string): boolean {
+  if (!xml) return false
+  const trimmed = xml.trim()
+  if (!trimmed) return false
+
+  // Shape check: protect drawio's atob path on <diagram> with non-XML body.
+  let shapeOk = false
+  if (trimmed.includes('<mxGraphModel')) {
+    shapeOk = true
+  } else {
+    const diagramMatch = trimmed.match(/<diagram\b[^>]*>([\s\S]*?)<\/diagram>/i)
+    if (!diagramMatch) {
+      shapeOk = !trimmed.includes('<diagram')
+    } else {
+      const inner = diagramMatch[1].trim()
+      if (inner.startsWith('<')) shapeOk = true
+      else if (inner) shapeOk = /^[A-Za-z0-9+/=\s]+$/.test(inner) && inner.replace(/\s+/g, '').length % 4 === 0
+    }
+  }
+  if (!shapeOk) return false
+
+  // Parse check: if our DOMParser rejects it, drawio's libxml2 will too.
+  try {
+    const doc = new DOMParser().parseFromString(trimmed, 'text/xml')
+    if (doc.getElementsByTagName('parsererror').length > 0) return false
+  } catch {
+    return false
+  }
+  return true
+}
+
 interface DrawioEditorProps {
   data: string // XML string
   onChange?: (data: string) => void
@@ -43,6 +78,20 @@ export const DrawioEditor = forwardRef<DrawioEditorRef, DrawioEditorProps>(
     const [hasChanges, setHasChanges] = useState(false)
     const lastSavedXmlRef = useRef<string | null>(null)
 
+    // Remount key + initial-xml-for-iframe state. Used to force drawio's iframe
+    // to fully reinitialize (and run its built-in auto-fit) on the first
+    // transition from empty template to real AI-generated content. Subsequent
+    // edits go through the imperative load() path, preserving the user's pan.
+    const [iframeKey, setIframeKey] = useState(0)
+    const [iframeInitialXml, setIframeInitialXml] = useState<string>(() => data || '')
+    const hasRemountedForFirstContentRef = useRef(false)
+    const previousDataRef = useRef('')
+
+    const hasRealContent = (xml: string): boolean => {
+      if (!xml) return false
+      return (xml.match(/<mxCell\b/g) || []).length > 2
+    }
+
     // 动态计算 Draw.io 的 base URL
     const drawioBaseUrl = drawioConfig.useLocalDrawio && drawioConfig.drawioBaseUrl
       ? drawioConfig.drawioBaseUrl
@@ -65,23 +114,61 @@ export const DrawioEditor = forwardRef<DrawioEditorRef, DrawioEditorProps>(
       setEditedCode(data)
       setHasChanges(false)
 
-      // Explicitly load data into drawio when it changes
-      // This ensures updates from AI streaming are reflected immediately without iframe reload
+      // Detect first empty→content transition. drawio's iframe auto-fits content
+      // only during initialization; an imperative load() on an already-running
+      // iframe doesn't reset the viewport. So we force a fresh init via remount
+      // (key change) exactly once, the first time real content shows up.
+      //
+      // Gate the trigger on isReady=true: when the iframe is still warming up
+      // (initial mount), the library will load the xml prop natively during
+      // its first init — no need to force a second remount on top of that.
+      const prevHadContent = hasRealContent(previousDataRef.current)
+      const nowHasContent = hasRealContent(data)
+      previousDataRef.current = data
+      if (isReady && !hasRemountedForFirstContentRef.current && !prevHadContent && nowHasContent) {
+        console.log('[DrawioEditor] Remounting iframe for first content transition; cells=', (data.match(/<mxCell\b/g) || []).length)
+        hasRemountedForFirstContentRef.current = true
+        setIframeInitialXml(data)
+        setIframeKey(k => k + 1)
+        return
+      }
+
+      // Subsequent loads: imperative path. Preserves the user's current pan/zoom.
       if (isReady && drawioRef.current) {
         // If data matches what we just saved, don't reload to avoid flicker/loop
         if (data === lastSavedXmlRef.current) {
           return
         }
+        // If the data is exactly what we asked the iframe to load during init,
+        // the library will handle it via the xml prop; skip imperative load.
+        if (data === iframeInitialXml) {
+          return
+        }
 
         if (data) {
-          drawioRef.current.load({ xml: data })
+          // Guard against half-streamed XML that would make drawio's loader call
+          // atob() on a non-base64 string and pop "Failed to execute 'atob'" alert.
+          if (!isDrawioLoadSafe(data)) {
+            return
+          }
+          try {
+            drawioRef.current.load({ xml: data })
+          } catch (err) {
+            console.warn('[DrawioEditor] load() threw, skipping frame:', err)
+          }
         } else {
           // Load default empty graph to ensure editor is initialized
           const emptyGraph = '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>'
           drawioRef.current.load({ xml: emptyGraph })
         }
       }
-    }, [data, isReady])
+    }, [data, isReady, iframeInitialXml])
+
+    // When iframe remounts, the old isReady flag is stale; reset so handleLoad
+    // can fire again for the new iframe instance.
+    useEffect(() => {
+      if (iframeKey > 0) setIsReady(false)
+    }, [iframeKey])
 
     // Handle export event - 处理导出回调
     const handleExportCallback = useCallback((exportData: EventExport) => {
@@ -307,8 +394,10 @@ export const DrawioEditor = forwardRef<DrawioEditorRef, DrawioEditorProps>(
       <TooltipProvider>
         <div className={cn('relative h-full w-full', className)}>
           <DrawIoEmbed
+            key={iframeKey}
             ref={drawioRef}
             baseUrl={drawioBaseUrl}
+            xml={iframeInitialXml || undefined}
             onLoad={handleLoad}
             onAutoSave={handleAutoSave}
             onExport={handleExportCallback}

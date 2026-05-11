@@ -2,7 +2,7 @@ import {useEffect, useRef, useState} from 'react'
 import {useNavigate} from 'react-router-dom'
 import {Bot, Edit, Info, Link, MoveRight, Paperclip, Send, X} from 'lucide-react'
 import {v4 as uuidv4} from 'uuid'
-import {Button, Dialog, DialogContent, Loading, Logo} from '@/components/ui'
+import {Button, Dialog, DialogContent, DialogDescription, DialogTitle, Loading, Logo} from '@/components/ui'
 import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
 import {ModelSelector} from '@/components/ai/ModelSelector'
 import {QUICK_ACTION_ROWS, QUICK_ACTIONS} from '@/constants'
@@ -802,6 +802,8 @@ export function HomePage() {
       {/* Project Preview Dialog */}
       <Dialog open={!!previewProject} onOpenChange={() => setPreviewProject(null)}>
         <DialogContent className="max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-none">
+          <DialogTitle className="sr-only">{previewProject?.title || '项目预览'}</DialogTitle>
+          <DialogDescription className="sr-only">项目预览，包含缩略图和元信息</DialogDescription>
           <div className="relative flex flex-col items-center justify-center">
             <div className="relative w-full bg-white rounded-lg overflow-hidden shadow-2xl">
               <div className="flex items-center justify-center bg-white p-8 min-h-[400px]">

@@ -12,6 +12,7 @@ import {
   MoveRight,
   RotateCcw,
   Send,
+  Square,
   User,
   X
 } from 'lucide-react'
@@ -22,7 +23,9 @@ import {selectIsEmpty, useEditorStore} from '@/stores/editorStore'
 import {useAIGenerate} from '@/hooks/useAIGenerate'
 import {useToast} from '@/hooks/useToast'
 import {aiService} from '@/services/aiService'
+import {ChatRepository} from '@/services/chatRepository'
 import {useSystemStore} from '@/stores/systemStore'
+import {usePayloadStore} from '@/stores/payloadStore'
 import {
   fileToBase64,
   parseDocument,
@@ -50,13 +53,14 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const hasHandledInitialPrompt = useRef(false)
 
-  const { messages, isStreaming, initialPrompt, initialAttachments, clearInitialPrompt, clearMessages } = useChatStore()
+  const { messages, isStreaming, initialPrompt, initialAttachments, clearInitialPrompt, clearMessages, abort } = useChatStore()
   const isCanvasEmpty = useEditorStore(selectIsEmpty)
   const currentProject = useEditorStore((s) => s.currentProject)
   const { generate, retryLast } = useAIGenerate()
   const { error: showError, success: showSuccess } = useToast()
   const language = useSystemStore((state) => state.language)
   const i18nTexts = useSystemStore((state) => state.i18nTexts)
+  const setPayloadMessages = usePayloadStore((s) => s.setMessages)
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -283,6 +287,8 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
         return { text: '绘制完成', icon: <CheckCircle2 className="h-4 w-4 text-green-500" /> }
       case 'error':
         return { text: '出错了', icon: <X className="h-4 w-4 text-red-500" /> }
+      case 'aborted':
+        return { text: '已停止', icon: <Square className="h-4 w-4 text-muted" /> }
       default:
         return { text: '处理中...', icon: <Loader2 className="h-4 w-4 animate-spin" /> }
     }
@@ -319,7 +325,20 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
               variant="ghost"
               size="icon"
               title={i18nTexts.chatNewConversation[language]}
-              onClick={clearMessages}
+              onClick={async () => {
+                if (messages.length === 0) return
+                const ok = window.confirm('确认新建会话？此操作会删除当前项目的聊天历史记录。')
+                if (!ok) return
+                if (currentProject) {
+                  try {
+                    await ChatRepository.deleteByProjectId(currentProject.id)
+                  } catch (err) {
+                    console.error('Failed to delete chat history:', err)
+                  }
+                }
+                clearMessages()
+                setPayloadMessages([])
+              }}
               disabled={isStreaming || messages.length === 0}
             >
               <MessageSquarePlus className="h-4 w-4" />
@@ -434,6 +453,14 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                       {!msg.plan && !msg.code && (
                         <div className="text-sm whitespace-pre-wrap">
                           {msg.content}
+                        </div>
+                      )}
+
+                      {/* Streaming gap: think/plan closed (planEndTime set) but code not yet assembled */}
+                      {msg.plan && !msg.code && msg.status === 'streaming' && msg.metrics?.planEndTime && (
+                        <div className="flex items-center gap-2 text-xs text-muted">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>正在生成图表元素...</span>
                         </div>
                       )}
 
@@ -620,14 +647,26 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
                 </span>
               )}
             </div>
-            <Button
-              onClick={() => handleSend()}
-              disabled={(!inputValue.trim() && attachments.length === 0) || isStreaming}
-              size="sm"
-              className="h-8"
-            >
-              <Send className="h-4 w-4 mr-1" />
-            </Button>
+            {isStreaming ? (
+              <Button
+                onClick={abort}
+                size="sm"
+                variant="destructive"
+                className="h-8 w-8 p-0 rounded-full"
+                title="停止生成"
+              >
+                <Square className="h-3.5 w-3.5 fill-current" />
+              </Button>
+            ) : (
+              <Button
+                onClick={() => handleSend()}
+                disabled={!inputValue.trim() && attachments.length === 0}
+                size="sm"
+                className="h-8"
+              >
+                <Send className="h-4 w-4 mr-1" />
+              </Button>
+            )}
           </div>
         </div>
       </div>

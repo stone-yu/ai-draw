@@ -68,6 +68,7 @@ async function prepareSecureAiConfig(): Promise<Record<string, unknown> | undefi
       apiKey?: string
       baseUrl?: string
       modelId?: string
+      maxTokens?: number
     }>
   }
 
@@ -93,7 +94,8 @@ async function prepareSecureAiConfig(): Promise<Record<string, unknown> | undefi
           // 使用无关的字段名并加密 (仅当 API Key 存在时)
           ...(currentProvider.apiKey && { auth: encryptSensitive(currentProvider.apiKey) }),
           baseUrl: currentProvider.baseUrl,
-          modelId: currentProvider.modelId
+          modelId: currentProvider.modelId,
+          ...(typeof currentProvider.maxTokens === 'number' && currentProvider.maxTokens > 0 && { maxTokens: currentProvider.maxTokens })
         }
       }
 
@@ -200,7 +202,7 @@ export const aiService = {
   /**
    * Send chat messages to AI and get response (non-streaming)
    */
-  async chat(messages: PayloadMessage[]): Promise<string> {
+  async chat(messages: PayloadMessage[], signal?: AbortSignal): Promise<string> {
     const startTime = Date.now()
     const debug = ((window as unknown as Record<string, unknown>)._ENV_ as Record<string, unknown>)?.DEBUG
     if (debug) {
@@ -223,6 +225,7 @@ export const aiService = {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify(request),
+        signal,
       })
 
       if (response.status === 401 || response.status === 403) {
@@ -285,6 +288,11 @@ export const aiService = {
       return content
     } catch (error) {
       const duration = Date.now() - startTime
+      // Re-throw abort errors as-is so callers can handle them distinctly
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        console.log(`[AI Service] Request Aborted. Duration: ${duration}ms`)
+        throw error
+      }
       console.error(`[AI Service] Request Failed. Duration: ${duration}ms`, error)
       // 如果错误信息还没被转换，再转换一次
       if (error instanceof Error) {
@@ -307,7 +315,8 @@ export const aiService = {
   async streamChat(
     messages: PayloadMessage[],
     onChunk: (chunk: string, accumulated: string) => void,
-    onComplete?: (content: string) => void
+    onComplete?: (content: string) => void,
+    signal?: AbortSignal,
   ): Promise<string> {
     const startTime = Date.now()
     const debug = ((window as unknown as Record<string, unknown>)._ENV_ as Record<string, unknown>)?.DEBUG
@@ -331,6 +340,7 @@ export const aiService = {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify(request),
+        signal,
       })
 
       if (response.status === 401 || response.status === 403) {
@@ -425,6 +435,11 @@ export const aiService = {
       return fullContent
     } catch (error) {
       const duration = Date.now() - startTime
+      // Re-throw abort errors as-is so callers can handle them distinctly
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        console.log(`[AI Service] Stream Request Aborted. Duration: ${duration}ms`)
+        throw error
+      }
       console.error(`[AI Service] Stream Request Failed. Duration: ${duration}ms`, error)
       // 如果错误信息还没被转换，再转换一次
       if (error instanceof Error) {
