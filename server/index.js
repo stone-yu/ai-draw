@@ -1483,21 +1483,19 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
          const provider = config.provider;
          providerId = provider.id;
          providerName = provider.name;
-         // For Ollama, auth is optional; for other providers, auth is required
-         const isOllama = provider.name?.toLowerCase() === 'ollama' || provider.id?.toLowerCase() === 'ollama';
-         if (provider.auth || isOllama) {
-            // 解密 auth 字段获取真实的 apiKey (如果存在)
-            if (provider.auth) {
-              apiKey = decryptSensitive(provider.auth);
-            }
-            apiBaseUrl = provider.baseUrl;
-            modelId = provider.modelId;
-            foundCustomConfig = true;
-            if (debug) {
-              console.log('[AI Service] Using secure provider format from request body:', provider.name || provider.id);
-              console.log('[AI Service] Provider config - apiKey:', apiKey ? '***' + apiKey.slice(-4) : 'empty',
-                          'baseUrl:', apiBaseUrl, 'modelId:', modelId);
-            }
+         // API key is optional — local LLM endpoints (Ollama, LM Studio,
+         // self-hosted gateways) often need no auth. Accept the provider
+         // config either way; decrypt auth only if present.
+         if (provider.auth) {
+           apiKey = decryptSensitive(provider.auth);
+         }
+         apiBaseUrl = provider.baseUrl;
+         modelId = provider.modelId;
+         foundCustomConfig = true;
+         if (debug) {
+           console.log('[AI Service] Using secure provider format from request body:', provider.name || provider.id);
+           console.log('[AI Service] Provider config - apiKey:', apiKey ? '***' + apiKey.slice(-4) : 'empty',
+                       'baseUrl:', apiBaseUrl, 'modelId:', modelId);
          }
       }
       // Legacy format: Check old provider format (兼容旧版本)
@@ -1580,10 +1578,12 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
     console.log(`[AI Service] Using provider: ${providerId || 'system-default'}, baseUrl: ${apiBaseUrl}, modelId: ${modelId}`);
     console.log(`[AI Service] Debug - providerId: "${providerId}", providerName: "${providerName}", apiKey exists: ${!!apiKey}, apiKey value: "${apiKey}"`);
 
-    // For Ollama, API key is optional (check by provider name, case-insensitive)
-    const isOllama = providerName?.toLowerCase() === 'ollama' || providerId?.toLowerCase() === 'ollama';
-    if (!apiKey && !isOllama) {
-      return res.status(500).json({ error: 'AI_API_KEY not configured' });
+    // API key is optional. If neither user-config nor system-default supplies
+    // one, we still send the request (some local endpoints need no auth).
+    // If the upstream service requires auth, it will return 401 and we
+    // surface that error to the user — clearer than failing here.
+    if (!apiKey) {
+      console.log('[AI Service] No API key configured; proceeding without Authorization header');
     }
 
     // Set timeout for AI requests (5 minutes for long-running models)
