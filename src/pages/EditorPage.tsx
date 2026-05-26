@@ -388,12 +388,18 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
               <DropdownMenuRadioGroup>
                 <DropdownMenuRadioItem className='pl-2' value="svg" onClick={() => canvasRef.current?.exportAsSvg()}>
                   <Code className="mr-2 h-4 w-4" />
-                  {i18nTexts.editorExportSVG[language]}
+                  {currentProject?.engineType === 'html-ppt'
+                    ? (language === 'zh' ? '导出 HTML deck' : 'Export HTML deck')
+                    : currentProject?.engineType === 'html'
+                      ? (language === 'zh' ? '导出 HTML' : 'Export HTML')
+                      : i18nTexts.editorExportSVG[language]}
                 </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem className='pl-2' value="png" onClick={() => canvasRef.current?.exportAsPng()}>
-                  <Image className="mr-2 h-4 w-4" />
-                  {i18nTexts.editorExportPNG[language]}
-                </DropdownMenuRadioItem>
+                {currentProject?.engineType !== 'html-ppt' && (
+                  <DropdownMenuRadioItem className='pl-2' value="png" onClick={() => canvasRef.current?.exportAsPng()}>
+                    <Image className="mr-2 h-4 w-4" />
+                    {i18nTexts.editorExportPNG[language]}
+                  </DropdownMenuRadioItem>
+                )}
                 <DropdownMenuRadioItem className='pl-2' value="source" onClick={() => canvasRef.current?.exportAsSource()}>
                   <FileText className="mr-2 h-4 w-4" />
                   {i18nTexts.editorExportSource[language]}
@@ -418,8 +424,8 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
             <TooltipContent>{i18nTexts.editorSourceCodeTooltip[language]}</TooltipContent>
           </Tooltip>
 
-          {/* Open in new window — html engine only */}
-          {currentProject?.engineType === 'html' && (
+          {/* Open in new window — html / html-ppt engines */}
+          {(currentProject?.engineType === 'html' || currentProject?.engineType === 'html-ppt') && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
