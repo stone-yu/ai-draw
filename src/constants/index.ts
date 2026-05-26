@@ -41,14 +41,3 @@ export const QUICK_ACTION_ROWS = [
 ]
 
 export const QUICK_ACTIONS = QUICK_ACTION_ROWS.flat()
-
-/**
- * @deprecated Removed in Task 9. Kept for one task's worth of compile time
- * so CreateProjectDialog.tsx and HomePage.tsx can still import the name
- * while their bodies are rewritten in Task 9.
- */
-export const HTML_STYLES = DIAGRAM_THEMES.slice(0, 4).map((t) => ({
-  value: t.id,
-  label: t.name,
-  description: t.description,
-}))

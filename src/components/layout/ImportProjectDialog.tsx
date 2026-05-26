@@ -33,8 +33,8 @@ export function ImportProjectDialog({ open, onOpenChange }: ImportProjectDialogP
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isImporting, setIsImporting] = useState(false)
 
-  // Exclude html engine from import (out-of-scope for first pass)
-  const importableEngines = ENGINES.filter((e) => e.value !== 'html')
+  // Exclude html and html-ppt engines from import (out-of-scope for first pass)
+  const importableEngines = ENGINES.filter((e) => e.value !== 'html' && e.value !== 'html-ppt')
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
