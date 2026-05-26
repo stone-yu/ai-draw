@@ -1,12 +1,17 @@
-// Engine Types
-export type EngineType = 'mermaid' | 'excalidraw' | 'drawio' | 'html'
+import type { PptAudience } from '@/lib/skillThemes'
 
-// HTML Engine style variants — picked at project creation, immutable after
-export type HtmlStyleVariant =
-  | 'dark-tech'
-  | 'flat-icon'
-  | 'blueprint'
-  | 'claude-official'
+// Engine Types
+export type EngineType = 'mermaid' | 'excalidraw' | 'drawio' | 'html' | 'html-ppt'
+
+/**
+ * HTML / HTML-PPT theme id. Now a free-form string because we accept
+ * skill v0.3's 12 diagram themes + 36 ppt themes plus the 4 legacy
+ * values (mapped at render time via normalizeHtmlTheme).
+ *
+ * Kept as a string union alias for grep-ability; do NOT add new
+ * enum members here.
+ */
+export type HtmlStyleVariant = string
 
 // Group
 export interface Group {
@@ -22,9 +27,12 @@ export interface Project {
   id: string
   title: string
   engineType: EngineType
-  styleVariant?: HtmlStyleVariant // only when engineType === 'html'
-  thumbnail: string // Base64 string for preview
-  groupId?: string // Optional, if undefined/null -> 'Uncategorized'
+  /** html: 12 themes (or legacy 4); html-ppt: 36 themes */
+  styleVariant?: string
+  /** Only set for engineType === 'html-ppt' */
+  pptAudience?: PptAudience
+  thumbnail: string
+  groupId?: string
   createdAt: Date
   updatedAt: Date
 }

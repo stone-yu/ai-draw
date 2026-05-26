@@ -20,6 +20,8 @@ export const SYSTEM_PROMPTS: Record<EngineType, PromptEntry> = {
   excalidraw: excalidrawSystemPrompt,
   drawio: drawioSystemPrompt,
   html: (ctx) => buildHtmlSystemPrompt(ctx.styleVariant ?? 'dark-tech'),
+  // Stub — replaced with real ppt prompt in Task 7
+  'html-ppt': (ctx) => buildHtmlSystemPrompt(ctx.styleVariant ?? 'dark-tech'),
 }
 
 /**
