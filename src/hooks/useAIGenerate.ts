@@ -10,7 +10,7 @@ import {buildEditPrompt, buildInitialPrompt, extractCode, getSystemPrompt,} from
 import {generateThumbnail} from '@/lib/thumbnail'
 import {aiService} from '@/services/aiService'
 import {validateContent} from '@/lib/validators'
-import {sanitizeSvg} from '@/lib/validators/html'
+import {sanitizeHtml} from '@/lib/validators/html'
 import {useToast} from '@/hooks/useToast'
 import {applyDiagramOperations, convertToLegalXml, parseResponse, replaceNodes, validateAndFixXml} from '@/lib/xmlUtils'
 import type {Attachment, EngineType, PayloadMessage} from '@/types'
@@ -122,6 +122,7 @@ export function useAIGenerate() {
     const engineType = currentProject.engineType
     const systemPrompt = getSystemPrompt(engineType, {
       styleVariant: currentProject.styleVariant,
+      pptAudience: currentProject.pptAudience,
     })
 
     // Add user message to UI (with attachments)
@@ -269,8 +270,8 @@ export function useAIGenerate() {
       // Used as a safety fallback if post-stream validation fails for drawio.
       const streamingFallback = useEditorStore.getState().currentContent
 
-      if (engineType === 'html') {
-        validatedCode = sanitizeSvg(validatedCode)
+      if (engineType === 'html' || engineType === 'html-ppt') {
+        validatedCode = sanitizeHtml(validatedCode)
       }
 
       if (engineType === 'drawio') {
@@ -435,6 +436,7 @@ export function useAIGenerate() {
     const engineType = currentProject.engineType
     const systemPrompt = getSystemPrompt(engineType, {
       styleVariant: currentProject.styleVariant,
+      pptAudience: currentProject.pptAudience,
     })
 
     const assistantMsgId =
@@ -570,8 +572,8 @@ export function useAIGenerate() {
 
       let validatedCode = finalCode
 
-      if (engineType === 'html') {
-        validatedCode = sanitizeSvg(validatedCode)
+      if (engineType === 'html' || engineType === 'html-ppt') {
+        validatedCode = sanitizeHtml(validatedCode)
       }
 
       if (engineType === 'drawio') {

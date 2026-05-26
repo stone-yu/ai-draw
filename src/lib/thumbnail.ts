@@ -99,17 +99,12 @@ export async function generateExcalidrawThumbnail(jsonContent: string): Promise<
 }
 
 /**
- * Generate thumbnail from a raw SVG string (for html engine).
- * Re-uses the existing svgToDataUrl pipeline.
+ * v2: HTML engines (html / html-ppt) output full documents that cannot be
+ * rasterized without a hidden iframe + html2canvas. Return empty and let UI
+ * fall back to placeholder. Kept as a function for back-compat with callers.
  */
-export async function generateHtmlThumbnail(svg: string): Promise<string> {
-  if (!svg.trim()) return ''
-  try {
-    return await svgToDataUrl(svg)
-  } catch (error) {
-    console.error('Failed to generate HTML thumbnail:', error)
-    return ''
-  }
+export async function generateHtmlThumbnail(): Promise<string> {
+  return ''
 }
 
 /**
@@ -194,7 +189,10 @@ export async function generateThumbnail(
     case 'excalidraw':
       return generateExcalidrawThumbnail(content)
     case 'html':
-      return generateHtmlThumbnail(content)
+    case 'html-ppt':
+      // v2: HTML output cannot be turned into a thumbnail without a hidden
+      // iframe + html2canvas. Return empty and let UI fall back to placeholder.
+      return ''
     case 'drawio':
       // Drawio thumbnails are generated via thumbnailGetter in editorStore
       // which uses DrawioEditor's native export for accurate rendering
