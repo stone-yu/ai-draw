@@ -1,13 +1,18 @@
-import type { EngineType, HtmlStyleVariant } from '@/types'
+import type { EngineType } from '@/types'
+import type { PptAudience } from '@/lib/skillThemes'
 import {
   drawioSystemPrompt,
   excalidrawSystemPrompt,
   mermaidSystemPrompt,
   buildHtmlSystemPrompt,
+  buildHtmlPptSystemPrompt,
 } from './prompts'
 
 export interface PromptCtx {
-  styleVariant?: HtmlStyleVariant
+  /** Diagram theme for `html`, ppt theme for `html-ppt`. */
+  styleVariant?: string
+  /** Only for `html-ppt`. */
+  pptAudience?: PptAudience
 }
 
 type PromptEntry = string | ((ctx: PromptCtx) => string)
@@ -19,9 +24,8 @@ export const SYSTEM_PROMPTS: Record<EngineType, PromptEntry> = {
   mermaid: mermaidSystemPrompt,
   excalidraw: excalidrawSystemPrompt,
   drawio: drawioSystemPrompt,
-  html: (ctx) => buildHtmlSystemPrompt(ctx.styleVariant ?? 'dark-tech'),
-  // Stub — replaced with real ppt prompt in Task 7
-  'html-ppt': (ctx) => buildHtmlSystemPrompt(ctx.styleVariant ?? 'dark-tech'),
+  html: (ctx) => buildHtmlSystemPrompt(ctx.styleVariant ?? 'tech-dark'),
+  'html-ppt': (ctx) => buildHtmlPptSystemPrompt(ctx.pptAudience ?? 'engineers', ctx.styleVariant),
 }
 
 /**
@@ -177,16 +181,26 @@ export function extractCode(response: string, engineType: EngineType): string {
     code = code.replace(planMatch[0], '').trim()
   }
 
-  // For html engine, prefer the outermost <svg>...</svg> block in the response.
-  // Use a greedy match so nested <svg> (e.g., icon glyphs inside the main svg)
-  // do not cause us to truncate at the first inner </svg>.
   if (engineType === 'html') {
-    const svgMatch = code.match(/<svg\b[\s\S]*<\/svg\s*>/i)
-    if (svgMatch) {
-      return svgMatch[0].trim()
+    // Prefer outer <article>; fall back to <!-- type:... --> header + everything to end.
+    const articleMatch = code.match(/<article\b[\s\S]*<\/article\s*>/i)
+    if (articleMatch) return articleMatch[0].trim()
+    const headerIdx = code.indexOf('<!--')
+    if (headerIdx >= 0) return code.slice(headerIdx).trim()
+    const fenced = code.match(/```(?:html|xml|svg)?\n?([\s\S]*?)```/i)
+    if (fenced) return fenced[1].trim()
+    return code
+  }
+
+  if (engineType === 'html-ppt') {
+    // Find <!-- audience:... --> header then everything ending at last </section>.
+    const headerIdx = code.search(/<!--\s*audience:/i)
+    const lastSectionClose = code.toLowerCase().lastIndexOf('</section>')
+    if (lastSectionClose >= 0) {
+      const start = headerIdx >= 0 ? headerIdx : code.search(/<section\b/i)
+      if (start >= 0) return code.slice(start, lastSectionClose + '</section>'.length).trim()
     }
-    // Fallback: strip fences only.
-    const fenced = code.match(/```(?:svg|xml|html)?\n?([\s\S]*?)```/i)
+    const fenced = code.match(/```(?:html)?\n?([\s\S]*?)```/i)
     if (fenced) return fenced[1].trim()
     return code
   }
