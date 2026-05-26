@@ -225,15 +225,12 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
           />
         )
       case 'html':
-        // Fallback to 'dark-tech' if styleVariant is somehow missing on disk
-        // (e.g., an html project created before this guard was added). The
-        // repository now defaults at write time; this is the read-side net.
         return (
           <HtmlRenderer
             ref={htmlRef}
             key={projectKey}
-            svg={currentContent}
-            styleVariant={styleVariant ?? 'dark-tech'}
+            html={currentContent}
+            styleVariant={styleVariant ?? 'tech-dark'}
             title={currentProject?.title || ''}
             onChange={handleContentChange}
           />

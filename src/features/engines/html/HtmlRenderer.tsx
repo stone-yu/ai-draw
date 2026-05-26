@@ -17,20 +17,20 @@ import {
   TooltipTrigger,
 } from '@/components/ui/Tooltip'
 import { cn } from '@/lib/utils'
-import { buildSrcDoc } from '@/lib/htmlShells'
-import { sanitizeSvg } from '@/lib/validators/html'
-import type { HtmlStyleVariant } from '@/types'
+import { buildHtmlSrcDoc } from '@/lib/htmlShells'
+import { sanitizeHtml } from '@/lib/validators/html'
 
 interface HtmlRendererProps {
-  svg: string
-  styleVariant: HtmlStyleVariant
+  /** Sanitized HTML fragment (AI output). */
+  html: string
+  styleVariant: string
   title: string
-  onChange?: (svg: string) => void
+  onChange?: (html: string) => void
   className?: string
 }
 
 export interface HtmlRendererRef {
-  exportAsSvg: () => void
+  exportAsSvg: () => void   // alias for HTML download (keeps menu wiring stable)
   exportAsPng: () => void
   exportAsSource: () => void
   showSourceCode: () => void
@@ -39,25 +39,29 @@ export interface HtmlRendererRef {
   openInNewWindow: () => void
 }
 
+const PLACEHOLDER = '<!-- type:architecture theme:tech-dark -->\n<article class="diagram"><h1>等待 AI 生成…</h1></article>'
+
 export const HtmlRenderer = forwardRef<HtmlRendererRef, HtmlRendererProps>(
-  function HtmlRenderer({ svg, styleVariant, title, onChange, className }, ref) {
+  function HtmlRenderer({ html, styleVariant, title, onChange, className }, ref) {
     const [showCodePanel, setShowCodePanel] = useState(false)
     const [copied, setCopied] = useState(false)
-    const [editedCode, setEditedCode] = useState(svg)
+    const [editedCode, setEditedCode] = useState(html)
     const [hasChanges, setHasChanges] = useState(false)
     const iframeRef = useRef<HTMLIFrameElement | null>(null)
 
-    // Sync editedCode when external svg prop changes
+    // Sync editedCode when external html prop changes. This is the documented
+    // "controlled vs uncontrolled editor" pattern: the prop is the source of
+    // truth, but the Monaco buffer is local so the user can edit before Apply.
     useEffect(() => {
-      setEditedCode(svg)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEditedCode(html)
       setHasChanges(false)
-    }, [svg])
+    }, [html])
 
-    // Build srcDoc once per (svg, styleVariant, title)
     const srcDoc = useMemo(() => {
-      const clean = sanitizeSvg(svg || '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60"></svg>')
-      return buildSrcDoc(styleVariant, clean, title)
-    }, [svg, styleVariant, title])
+      const body = sanitizeHtml(html || PLACEHOLDER)
+      return buildHtmlSrcDoc(styleVariant, body, title)
+    }, [html, styleVariant, title])
 
     const downloadBlob = useCallback((data: string, mime: string, filename: string) => {
       const blob = new Blob([data], { type: mime })
@@ -68,80 +72,40 @@ export const HtmlRenderer = forwardRef<HtmlRendererRef, HtmlRendererProps>(
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      if (href.startsWith('blob:')) {
-        setTimeout(() => URL.revokeObjectURL(href), 100)
-      }
+      setTimeout(() => URL.revokeObjectURL(href), 100)
     }, [])
 
-    const exportAsSvg = useCallback(() => {
-      if (!svg) return
-      downloadBlob(svg, 'image/svg+xml', `diagram-${Date.now()}.svg`)
-    }, [svg, downloadBlob])
+    const exportAsHtml = useCallback(() => {
+      if (!srcDoc) return
+      downloadBlob(srcDoc, 'text/html;charset=utf-8', `diagram-${Date.now()}.html`)
+    }, [srcDoc, downloadBlob])
 
-    // For the html engine, the "source" IS the SVG — same content, distinct
-    // filename so users can tell the downloads apart in their Downloads folder.
     const exportAsSource = useCallback(() => {
-      if (!svg) return
-      downloadBlob(svg, 'image/svg+xml', `diagram-source-${Date.now()}.svg`)
-    }, [svg, downloadBlob])
+      if (!html) return
+      downloadBlob(html, 'text/html;charset=utf-8', `diagram-source-${Date.now()}.html`)
+    }, [html, downloadBlob])
 
+    // PNG export: rendering an HTML fragment to PNG requires html-to-image or a
+    // hidden iframe + foreignObject pipeline — both nontrivial. For v2 we just
+    // fall through to the HTML download path; "open in new window" + browser
+    // screenshot is the documented workaround.
     const exportAsPng = useCallback(async () => {
-      if (!svg) return
-      try {
-        const encoded = btoa(unescape(encodeURIComponent(svg)))
-        const dataUrl = `data:image/svg+xml;base64,${encoded}`
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve()
-          img.onerror = () => reject(new Error('Failed to load SVG for PNG export'))
-          img.src = dataUrl
-        })
-
-        const canvas = document.createElement('canvas')
-        const targetWidth = 1920
-        const ratio = (img.height || 1) / (img.width || 1)
-        canvas.width = targetWidth
-        canvas.height = Math.round(targetWidth * ratio)
-        const ctx = canvas.getContext('2d')
-        if (!ctx) throw new Error('Canvas 2D context unavailable')
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-
-        const pngUrl = canvas.toDataURL('image/png', 0.92)
-        const link = document.createElement('a')
-        link.href = pngUrl
-        link.download = `diagram-${Date.now()}.png`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-      } catch (err) {
-        console.error('[HtmlRenderer] PNG export failed:', err)
-      }
-    }, [svg])
+      console.warn('[HtmlRenderer] PNG export not implemented for v2 — falling back to HTML download')
+      exportAsHtml()
+    }, [exportAsHtml])
 
     const openInNewWindow = useCallback(() => {
-      // Open the full rendered HTML (shell + sanitized SVG) in a new tab as a
-      // blob URL. Blob URLs work in all browsers including those with strict
-      // popup blockers because we keep `noopener` semantics off (no opener
-      // reference needed; the new tab is purely a viewer).
       const blob = new Blob([srcDoc], { type: 'text/html;charset=utf-8' })
       const href = URL.createObjectURL(blob)
       const win = window.open(href, '_blank')
-      if (!win) {
-        // Popup blocked — fall back to navigating the current tab? We prefer
-        // surfacing the URL so the user can right-click open. Just log.
-        console.warn('[HtmlRenderer] Popup blocked; preview URL:', href)
-      }
-      // Revoke after a generous delay so the new tab finishes parsing.
+      if (!win) console.warn('[HtmlRenderer] Popup blocked; preview URL:', href)
       setTimeout(() => URL.revokeObjectURL(href), 60_000)
     }, [srcDoc])
 
     useImperativeHandle(
       ref,
       () => ({
-        exportAsSvg,
+        exportAsSvg: exportAsHtml,
         exportAsPng,
         exportAsSource,
         showSourceCode: () => setShowCodePanel(true),
@@ -149,7 +113,7 @@ export const HtmlRenderer = forwardRef<HtmlRendererRef, HtmlRendererProps>(
         toggleSourceCode: () => setShowCodePanel((p) => !p),
         openInNewWindow,
       }),
-      [exportAsSvg, exportAsPng, exportAsSource, openInNewWindow],
+      [exportAsHtml, exportAsPng, exportAsSource, openInNewWindow],
     )
 
     const handleCopyCode = useCallback(async () => {
@@ -166,22 +130,22 @@ export const HtmlRenderer = forwardRef<HtmlRendererRef, HtmlRendererProps>(
       (value: string | undefined) => {
         const next = value || ''
         setEditedCode(next)
-        setHasChanges(next !== svg)
+        setHasChanges(next !== html)
       },
-      [svg],
+      [html],
     )
 
     const handleApplyCode = useCallback(() => {
-      if (editedCode.trim() && editedCode !== svg && onChange) {
+      if (editedCode.trim() && editedCode !== html && onChange) {
         onChange(editedCode)
         setHasChanges(false)
       }
-    }, [editedCode, svg, onChange])
+    }, [editedCode, html, onChange])
 
     const handleResetCode = useCallback(() => {
-      setEditedCode(svg)
+      setEditedCode(html)
       setHasChanges(false)
-    }, [svg])
+    }, [html])
 
     return (
       <TooltipProvider>
@@ -198,7 +162,7 @@ export const HtmlRenderer = forwardRef<HtmlRendererRef, HtmlRendererProps>(
             <div className="absolute bottom-4 right-4 z-10 w-96 max-h-[70%] flex flex-col border border-border bg-surface shadow-lg">
               <div className="flex items-center justify-between border-b border-border px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">SVG 源码</span>
+                  <span className="text-sm font-medium">HTML 源码</span>
                   {hasChanges && <span className="text-xs text-amber-500">• 未保存</span>}
                 </div>
                 <div className="flex items-center gap-1">
@@ -232,7 +196,7 @@ export const HtmlRenderer = forwardRef<HtmlRendererRef, HtmlRendererProps>(
               <div className="flex-1 min-h-0 overflow-hidden">
                 <Editor
                   height="300px"
-                  defaultLanguage="xml"
+                  defaultLanguage="html"
                   value={editedCode}
                   onChange={handleCodeChange}
                   theme="vs"
