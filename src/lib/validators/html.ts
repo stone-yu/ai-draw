@@ -21,6 +21,7 @@ const SKILL_LINK_PREFIX = SKILL_CDN_BASE // 'https://cdn.jsdelivr.net/gh/stone-y
 export function sanitizeHtml(html: string): string {
   let cleaned = html
 
+  cleaned = cleaned.replace(/<!--[\s\S]*?-->/g, '')
   cleaned = cleaned.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
   cleaned = cleaned.replace(/<script\b[^>]*\/>/gi, '')
   cleaned = cleaned.replace(/<iframe\b[\s\S]*?<\/iframe\s*>/gi, '')
@@ -37,7 +38,7 @@ export function sanitizeHtml(html: string): string {
 
   // Strip <link> tags whose href is outside the skill CDN.
   cleaned = cleaned.replace(/<link\b[^>]*>/gi, (tag) => {
-    const hrefMatch = tag.match(/href\s*=\s*["']([^"']+)["']/i)
+    const hrefMatch = tag.match(/(?:^|\s)href\s*=\s*["']([^"']+)["']/i)
     if (!hrefMatch) return ''
     return hrefMatch[1].startsWith(SKILL_LINK_PREFIX) ? tag : ''
   })
@@ -72,5 +73,7 @@ export function validateHtmlContent(html: string): ValidationResult {
 // Backwards-compat re-exports for code that still imports the old names.
 // The body is identical to sanitizeHtml / validateHtmlContent for the SVG
 // case because an SVG fragment is just a special HTML fragment.
+/** @deprecated use sanitizeHtml */
 export const sanitizeSvg = sanitizeHtml
+/** @deprecated use validateHtmlContent */
 export const validateHtmlSvg = validateHtmlContent
