@@ -189,7 +189,7 @@ export function ThoughtBlock({ content, duration, isStreaming }: ThoughtBlockPro
 
 interface CodeBlockProps {
   code: string
-  language?: 'xml' | 'json' | 'mermaid'
+  language?: 'xml' | 'json' | 'mermaid' | 'html'
   isStreaming?: boolean
   duration?: number
 }
@@ -236,7 +236,7 @@ export function CodeBlock({ code, language = 'xml', isStreaming, duration }: Cod
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
 
-    if (lang === 'xml') {
+    if (lang === 'xml' || lang === 'html') {
       const TAG_OPEN = '___TAG_OPEN___'
       const TAG_CLOSE = '___TAG_CLOSE___'
       const ATTR_OPEN = '___ATTR_OPEN___'

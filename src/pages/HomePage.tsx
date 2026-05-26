@@ -800,7 +800,11 @@ export function HomePage() {
                             ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
                             : project.engineType === 'drawio'
                               ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'
-                              : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400'
+                              : project.engineType === 'html'
+                                ? 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400'
+                                : project.engineType === 'html-ppt'
+                                  ? 'bg-pink-50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400'
+                                  : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400'
                         }`}>
                           {project.engineType.toUpperCase()}
                         </span>

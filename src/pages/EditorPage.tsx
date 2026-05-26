@@ -322,7 +322,11 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                     currentProject.engineType === 'excalidraw'
                       ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                      : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                      : currentProject.engineType === 'html'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
+                        : currentProject.engineType === 'html-ppt'
+                          ? 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300'
+                          : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
                   }`}>
                   {currentProject.engineType.toUpperCase()}
                 </span>
