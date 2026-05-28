@@ -1,6 +1,13 @@
 import mermaid from 'mermaid'
 import { exportToBlob, restoreElements, convertToExcalidrawElements } from '@excalidraw/excalidraw'
 import type { EngineType } from '@/types'
+import type { PptAudience } from '@/lib/skillThemes'
+import { generateHtmlCardThumbnail } from './htmlCardThumbnail'
+
+export interface ThumbnailOpts {
+  styleVariant?: string
+  pptAudience?: PptAudience
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ExcalidrawElementAny = any
@@ -179,7 +186,8 @@ async function svgToDataUrl(svgString: string): Promise<string> {
  */
 export async function generateThumbnail(
   content: string,
-  engineType: EngineType
+  engineType: EngineType,
+  opts: ThumbnailOpts = {}
 ): Promise<string> {
   if (!content.trim()) return ''
 
@@ -190,9 +198,13 @@ export async function generateThumbnail(
       return generateExcalidrawThumbnail(content)
     case 'html':
     case 'html-ppt':
-      // v2: HTML output cannot be turned into a thumbnail without a hidden
-      // iframe + html2canvas. Return empty and let UI fall back to placeholder.
-      return ''
+      // HTML output isn't easily rasterizable without a hidden iframe + html2canvas,
+      // so we generate a stylized SVG card from the theme + extracted heading instead.
+      return generateHtmlCardThumbnail(content, {
+        engineType,
+        styleVariant: opts.styleVariant,
+        pptAudience: opts.pptAudience,
+      })
     case 'drawio':
       // Drawio thumbnails are generated via thumbnailGetter in editorStore
       // which uses DrawioEditor's native export for accurate rendering

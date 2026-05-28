@@ -219,7 +219,10 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
           }
         } else if (!thumbnail) {
            try {
-             thumbnail = await generateThumbnail(currentContent, currentProject.engineType)
+             thumbnail = await generateThumbnail(currentContent, currentProject.engineType, {
+              styleVariant: currentProject.styleVariant,
+              pptAudience: currentProject.pptAudience,
+            })
            } catch (err) {
              console.error('Failed to generate thumbnail:', err)
            }
@@ -274,7 +277,10 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
       if (currentProject.engineType === 'drawio' && canvasRef.current) {
         thumbnail = await canvasRef.current.getThumbnail()
       } else {
-        thumbnail = await generateThumbnail(currentContent, currentProject.engineType)
+        thumbnail = await generateThumbnail(currentContent, currentProject.engineType, {
+              styleVariant: currentProject.styleVariant,
+              pptAudience: currentProject.pptAudience,
+            })
       }
 
       if (thumbnail) {

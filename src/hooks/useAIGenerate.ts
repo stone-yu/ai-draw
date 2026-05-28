@@ -417,7 +417,10 @@ export function useAIGenerate() {
           }
           thumbnail = await getThumbnailWithRetry()
         } else {
-          thumbnail = await generateThumbnail(finalCode, engineType)
+          thumbnail = await generateThumbnail(finalCode, engineType, {
+            styleVariant: currentProject.styleVariant,
+            pptAudience: currentProject.pptAudience,
+          })
         }
         if (thumbnail && thumbnail.startsWith('data:')) {
           await ProjectRepository.update(currentProject.id, { thumbnail })
@@ -721,7 +724,10 @@ export function useAIGenerate() {
           }
           thumbnail = await getThumbnailWithRetry()
         } else {
-          thumbnail = await generateThumbnail(finalCode, engineType)
+          thumbnail = await generateThumbnail(finalCode, engineType, {
+            styleVariant: currentProject.styleVariant,
+            pptAudience: currentProject.pptAudience,
+          })
         }
 
         if (thumbnail) {
