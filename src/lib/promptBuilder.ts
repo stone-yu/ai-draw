@@ -1,6 +1,7 @@
 
 import type { EngineType } from '@/types'
 import type { PptAudience } from '@/lib/skillThemes'
+import { stripThinkBlocks } from '@/lib/xmlUtils'
 import {
   drawioSystemPrompt,
   excalidrawSystemPrompt,

@@ -27,7 +27,7 @@ db.version(2).stores({
   projects: 'id, title, engineType, styleVariant, groupId, createdAt, updatedAt',
   groups: 'id, name, createdAt, updatedAt',
   versions: 'id, projectId, timestamp',
-  configs: 'key'
+  configs: 'key',
   chatMessages: 'id, projectId, timestamp, [projectId+timestamp]'
 });
 

@@ -54,10 +54,12 @@ const CHANGELOG_DATA: ChangelogItem[] = [
 - HTML engine supports Monaco SVG source code viewing / editing, and exports as SVG / PNG / source.
 - Built-in SVG sanitization strips scripts, \`on*\` event handlers, and \`javascript:\` URLs.
       `
-=======
+    }
+  },
+  {
     version: 'v1.9.6',
     date: '2026-05-11',
-    isLatest: true,
+    isLatest: false,
     content: {
       zh: `
 #### ✨ 新增能力
@@ -66,7 +68,7 @@ const CHANGELOG_DATA: ChangelogItem[] = [
 - 新增模型提供商维度设置最大输出 Tokens 限制功能。
 #### 🛠 优化能力
 - 优化一般模型输出质量兼容的鲁棒性。
-    `,
+      `,
       en: `
 #### ✨ New Features
 - Added AI chat history persistence.
@@ -74,7 +76,7 @@ const CHANGELOG_DATA: ChangelogItem[] = [
 - Added per-provider max output tokens setting.
 #### 🛠 Improvements
 - Improved robustness when handling general models with varying output quality.
-
+      `
     }
   },
   {
