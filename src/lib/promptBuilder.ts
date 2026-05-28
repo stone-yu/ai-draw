@@ -1,3 +1,4 @@
+
 import type { EngineType } from '@/types'
 import type { PptAudience } from '@/lib/skillThemes'
 import {
@@ -16,6 +17,7 @@ export interface PromptCtx {
 }
 
 type PromptEntry = string | ((ctx: PromptCtx) => string)
+
 
 /**
  * System prompts for different engines. Use getSystemPrompt() to resolve.
@@ -85,6 +87,29 @@ ${elementsOutput}
 
 根据这些元素，建立它们之间的逻辑连接、箭头和层级关系。
 输出最终完整的图表代码。`
+}
+
+// drawio-only: initial generation via <edit_operations> add-ops against empty canvas, so we never stream partial <mxGraphModel> to drawio's iframe loader.
+export function buildInitialOperationsPrompt(userInput: string): string {
+  return `当前画布为空（仅含根 cell id="0" 和 id="1"）。
+
+用户需求："""${userInput}"""
+
+请规划并生成图表，**必须**以局部修改格式（\`<edit_operations>\`）输出，全部为 \`add\` 操作。
+- 从 cell_id="2" 开始递增分配 ID。
+- 每个 add 的 new_xml 必须是单个完整 \`<mxCell ...>...</mxCell>\` 字符串，含 \`<mxGeometry .../>\` 等子元素；XML 内的双引号在 JSON 字符串里转义为 \\".
+- 不要输出 \`<mxGraphModel>\` 包裹结构；不要使用 Markdown 代码块。
+- 先输出 \`<plan>...</plan>\` 简述布局策略，再输出 \`<edit_operations>[...]</edit_operations>\`。
+
+示例：
+<plan>从上到下三层流程：开始 → 处理 → 结束。</plan>
+<edit_operations>
+[
+  {"operation": "add", "cell_id": "2", "new_xml": "<mxCell id=\\"2\\" value=\\"开始\\" style=\\"ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;\\" vertex=\\"1\\" parent=\\"1\\"><mxGeometry x=\\"200\\" y=\\"40\\" width=\\"120\\" height=\\"60\\" as=\\"geometry\\"/></mxCell>"},
+  {"operation": "add", "cell_id": "3", "new_xml": "<mxCell id=\\"3\\" value=\\"处理\\" style=\\"rounded=1;whiteSpace=wrap;html=1;\\" vertex=\\"1\\" parent=\\"1\\"><mxGeometry x=\\"200\\" y=\\"160\\" width=\\"120\\" height=\\"60\\" as=\\"geometry\\"/></mxCell>"},
+  {"operation": "add", "cell_id": "4", "new_xml": "<mxCell id=\\"4\\" style=\\"edgeStyle=orthogonalEdgeStyle;endArrow=classic;\\" edge=\\"1\\" parent=\\"1\\" source=\\"2\\" target=\\"3\\"><mxGeometry relative=\\"1\\" as=\\"geometry\\"/></mxCell>"}
+]
+</edit_operations>`
 }
 
 /**
@@ -161,7 +186,7 @@ function extractCellIds(xml: string): string[] {
  * Handles markdown code blocks and plain text
  */
 export function extractCode(response: string, engineType: EngineType): string {
-  let code = response.trim()
+  let code = stripThinkBlocks(response.trim())
 
   // Reasoning models (DeepSeek R1, Qwen QwQ, etc.) emit a <think>...</think>
   // block before their real answer. The block often contains pseudo-SVG
@@ -203,6 +228,31 @@ export function extractCode(response: string, engineType: EngineType): string {
     const fenced = code.match(/```(?:html)?\n?([\s\S]*?)```/i)
     if (fenced) return fenced[1].trim()
     return code
+  }
+
+  // For drawio: slice to the <mxfile> or <mxGraphModel> boundary so AI-invented
+  // wrappers (<draw-diagram>...) or trailers (<summary>...) don't poison DOMParser.
+  if (engineType === 'drawio') {
+    const mxfileStart = code.search(/<mxfile\b/i)
+    if (mxfileStart >= 0) {
+      const closeIdx = code.lastIndexOf('</mxfile>')
+      if (closeIdx > mxfileStart) {
+        code = code.substring(mxfileStart, closeIdx + '</mxfile>'.length)
+      } else {
+        code = code.substring(mxfileStart)
+      }
+    } else {
+      const mxGraphStart = code.search(/<mxGraphModel\b/i)
+      if (mxGraphStart >= 0) {
+        const closeIdx = code.lastIndexOf('</mxGraphModel>')
+        if (closeIdx > mxGraphStart) {
+          code = code.substring(mxGraphStart, closeIdx + '</mxGraphModel>'.length)
+        } else {
+          code = code.substring(mxGraphStart)
+        }
+      }
+    }
+
   }
 
   // Remove markdown code blocks if present

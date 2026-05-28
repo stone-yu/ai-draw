@@ -205,9 +205,10 @@ export const ProjectRepository = {
     const mode = useStorageModeStore.getState().mode
 
     if (mode === 'local') {
-      await db.transaction('rw', db.projects, db.versions, async () => {
+      await db.transaction('rw', db.projects, db.versions, db.chatMessages, async () => {
         await db.projects.delete(id)
         await db.versions.where('projectId').equals(id).delete()
+        await db.chatMessages.where('projectId').equals(id).delete()
       })
       return
     }

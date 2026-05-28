@@ -16,6 +16,7 @@ interface Provider {
   apiKey: string
   modelId: string
   models?: string[]
+  maxTokens?: number
 }
 
 interface ModelSelectorProps {

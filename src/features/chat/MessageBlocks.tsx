@@ -130,13 +130,10 @@ export function ThoughtBlock({ content, duration, isStreaming }: ThoughtBlockPro
         role="button"
         tabIndex={0}
         onClick={() => setIsCollapsed(!isCollapsed)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            setIsCollapsed(!isCollapsed)
-          }
-        }}
-        className="flex w-full cursor-pointer items-center justify-between px-3 py-2 text-xs hover:bg-surface transition-colors"
+
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsCollapsed(!isCollapsed) } }}
+        className="flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-surface transition-colors cursor-pointer select-none"
+
       >
         <div className="flex items-center gap-2 text-muted-foreground">
           {isStreaming ? (
@@ -297,13 +294,9 @@ export function CodeBlock({ code, language = 'xml', isStreaming, duration }: Cod
         role="button"
         tabIndex={0}
         onClick={() => setIsCollapsed(!isCollapsed)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            setIsCollapsed(!isCollapsed)
-          }
-        }}
-        className="flex w-full cursor-pointer items-center justify-between px-3 py-1.5 text-xs bg-muted/30 hover:bg-muted/50 transition-colors"
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsCollapsed(!isCollapsed) } }}
+        className="flex w-full items-center justify-between px-3 py-1.5 text-xs bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer select-none"
+
       >
         <div className="flex items-center gap-2 text-foreground">
           <Code2 className="h-3.5 w-3.5" />

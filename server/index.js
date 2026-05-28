@@ -1461,7 +1461,7 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
   }
 
   try {
-    let apiKey, apiBaseUrl, modelId, providerId, providerName;
+    let apiKey, apiBaseUrl, modelId, providerId, providerName, maxTokens;
 
     // Check if request body has aiConfig (local mode with custom config OR local mode using system default)
     // This takes priority over user cloud config to support local mode in logged-in state
@@ -1483,19 +1483,29 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
          const provider = config.provider;
          providerId = provider.id;
          providerName = provider.name;
+
          // API key is optional — local LLM endpoints (Ollama, LM Studio,
          // self-hosted gateways) often need no auth. Accept the provider
          // config either way; decrypt auth only if present.
-         if (provider.auth) {
-           apiKey = decryptSensitive(provider.auth);
-         }
-         apiBaseUrl = provider.baseUrl;
-         modelId = provider.modelId;
-         foundCustomConfig = true;
-         if (debug) {
-           console.log('[AI Service] Using secure provider format from request body:', provider.name || provider.id);
-           console.log('[AI Service] Provider config - apiKey:', apiKey ? '***' + apiKey.slice(-4) : 'empty',
-                       'baseUrl:', apiBaseUrl, 'modelId:', modelId);
+        
+         // For Ollama, auth is optional; for other providers, auth is required
+         const isOllama = provider.name?.toLowerCase() === 'ollama' || provider.id?.toLowerCase() === 'ollama';
+         if (provider.auth || isOllama) {
+            // 解密 auth 字段获取真实的 apiKey (如果存在)
+            if (provider.auth) {
+              apiKey = decryptSensitive(provider.auth);
+            }
+            apiBaseUrl = provider.baseUrl;
+            modelId = provider.modelId;
+            if (typeof provider.maxTokens === 'number' && provider.maxTokens > 0) {
+              maxTokens = provider.maxTokens;
+            }
+            foundCustomConfig = true;
+            if (debug) {
+              console.log('[AI Service] Using secure provider format from request body:', provider.name || provider.id);
+              console.log('[AI Service] Provider config - apiKey:', apiKey ? '***' + apiKey.slice(-4) : 'empty',
+                          'baseUrl:', apiBaseUrl, 'modelId:', modelId, 'maxTokens:', maxTokens);
+            }
          }
       }
       // Legacy format: Check old provider format (兼容旧版本)
@@ -1507,11 +1517,14 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
             apiKey = providerConfig.apiKey;
             apiBaseUrl = providerConfig.baseUrl;
             modelId = providerConfig.modelId;
+            if (typeof providerConfig.maxTokens === 'number' && providerConfig.maxTokens > 0) {
+              maxTokens = providerConfig.maxTokens;
+            }
             foundCustomConfig = true;
             if (debug) {
               console.log('[AI Service] Using legacy provider format from request body:', providerConfig.name || providerConfig.id);
               console.log('[AI Service] Provider config - apiKey:', apiKey ? '***' + apiKey.slice(-4) : 'empty',
-                          'baseUrl:', apiBaseUrl, 'modelId:', modelId);
+                          'baseUrl:', apiBaseUrl, 'modelId:', modelId, 'maxTokens:', maxTokens);
             }
          }
       }
@@ -1548,7 +1561,10 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
             apiKey = providerConfig.apiKey;
             apiBaseUrl = providerConfig.baseUrl;
             modelId = providerConfig.modelId;
-            if (debug) console.log(`[AI Service] Using user cloud custom provider: ${providerConfig.name}`);
+            if (typeof providerConfig.maxTokens === 'number' && providerConfig.maxTokens > 0) {
+              maxTokens = providerConfig.maxTokens;
+            }
+            if (debug) console.log(`[AI Service] Using user cloud custom provider: ${providerConfig.name}, maxTokens: ${maxTokens}`);
           } else {
             apiKey = user.aiConfig.apiKey;
             apiBaseUrl = user.aiConfig.baseUrl;
@@ -1599,14 +1615,19 @@ app.post('/api/chat', optionalAuthenticateToken, async (req, res) => {
         headers['Authorization'] = `Bearer ${apiKey}`;
       }
 
+      const upstreamBody = {
+        model: modelId,
+        messages: req.body.messages,
+        stream: req.body.stream
+      };
+      if (typeof maxTokens === 'number' && maxTokens > 0) {
+        upstreamBody.max_tokens = maxTokens;
+      }
+
       const response = await fetch(`${apiBaseUrl}/chat/completions`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          model: modelId,
-          messages: req.body.messages,
-          stream: req.body.stream
-        }),
+        body: JSON.stringify(upstreamBody),
         signal: controller.signal
       });
 

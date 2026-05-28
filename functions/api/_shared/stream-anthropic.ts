@@ -1,8 +1,8 @@
 import type { Env, Message } from './types'
 import { corsHeaders } from './cors'
-import { convertContentPartsToAnthropic } from './ai-providers'
+import { convertContentPartsToAnthropic, ANTHROPIC_DEFAULT_MAX_TOKENS } from './ai-providers'
 
-export async function streamAnthropic(messages: Message[], env: Env, exempt: boolean = false): Promise<Response> {
+export async function streamAnthropic(messages: Message[], env: Env, exempt: boolean = false, maxTokens?: number): Promise<Response> {
   const baseUrl = env.AI_BASE_URL
   const apiKey = env.AI_API_KEY
 
@@ -27,7 +27,7 @@ export async function streamAnthropic(messages: Message[], env: Env, exempt: boo
     },
     body: JSON.stringify({
       model: env.AI_MODEL_ID,
-      max_tokens: 64000,
+      max_tokens: (typeof maxTokens === 'number' && maxTokens > 0) ? maxTokens : ANTHROPIC_DEFAULT_MAX_TOKENS,
       system: typeof systemMessage?.content === 'string' ? systemMessage.content : '',
       messages: anthropicMessages,
       stream: true,

@@ -28,12 +28,24 @@ export function convertContentPartsToAnthropic(parts: ContentPart[]): AnthropicC
     .filter((part) => part.type === 'image' || (part.type === 'text' && part.text))
 }
 
-export async function callOpenAI(messages: Message[], env: Env): Promise<string> {
+// Anthropic API requires max_tokens; fall back to this when caller did not set one
+const ANTHROPIC_DEFAULT_MAX_TOKENS = 64000
+
+export async function callOpenAI(messages: Message[], env: Env, maxTokens?: number): Promise<string> {
   const baseUrl = env.AI_BASE_URL
   const apiKey = env.AI_API_KEY
 
   if (!apiKey) {
     throw new Error('AI_API_KEY not configured')
+  }
+
+  const body: Record<string, unknown> = {
+    model: env.AI_MODEL_ID,
+    messages: messages,
+    stream: false,
+  }
+  if (typeof maxTokens === 'number' && maxTokens > 0) {
+    body.max_tokens = maxTokens
   }
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -42,12 +54,7 @@ export async function callOpenAI(messages: Message[], env: Env): Promise<string>
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: env.AI_MODEL_ID,
-      messages: messages,
-      max_tokens: 64000,
-      stream: false,
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {
@@ -59,7 +66,7 @@ export async function callOpenAI(messages: Message[], env: Env): Promise<string>
   return data.choices[0]?.message?.content || ''
 }
 
-export async function callAnthropic(messages: Message[], env: Env): Promise<string> {
+export async function callAnthropic(messages: Message[], env: Env, maxTokens?: number): Promise<string> {
   const baseUrl = env.AI_BASE_URL
   const apiKey = env.AI_API_KEY
 
@@ -84,7 +91,7 @@ export async function callAnthropic(messages: Message[], env: Env): Promise<stri
     },
     body: JSON.stringify({
       model: env.AI_MODEL_ID,
-      max_tokens: 64000,
+      max_tokens: (typeof maxTokens === 'number' && maxTokens > 0) ? maxTokens : ANTHROPIC_DEFAULT_MAX_TOKENS,
       system: typeof systemMessage?.content === 'string' ? systemMessage.content : '',
       messages: anthropicMessages,
     }),
@@ -98,3 +105,5 @@ export async function callAnthropic(messages: Message[], env: Env): Promise<stri
   const data: AnthropicResponse = await response.json()
   return data.content[0]?.text || ''
 }
+
+export { ANTHROPIC_DEFAULT_MAX_TOKENS }
