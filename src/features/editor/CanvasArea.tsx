@@ -1,8 +1,10 @@
 import {type ForwardedRef, forwardRef, useCallback, useEffect, useImperativeHandle, useRef} from 'react'
-import {selectEngineType, useEditorStore} from '@/stores/editorStore'
+import {selectEngineType, selectStyleVariant, useEditorStore} from '@/stores/editorStore'
 import {MermaidRenderer, type MermaidRendererRef} from '@/features/engines/mermaid/MermaidRenderer'
 import {ExcalidrawEditor, type ExcalidrawEditorRef} from '@/features/engines/excalidraw/ExcalidrawEditor'
 import {DrawioEditor, type DrawioEditorRef} from '@/features/engines/drawio/DrawioEditor'
+import {HtmlRenderer, type HtmlRendererRef} from '@/features/engines/html/HtmlRenderer'
+import {HtmlPptRenderer, type HtmlPptRendererRef} from '@/features/engines/html-ppt/HtmlPptRenderer'
 
 export interface CanvasAreaRef {
   exportAsSvg: () => void
@@ -12,6 +14,7 @@ export interface CanvasAreaRef {
   hideSourceCode: () => void
   toggleSourceCode: () => void
   getThumbnail: () => Promise<string>
+  openInNewWindow: () => void
 }
 
 interface CanvasAreaProps {
@@ -35,6 +38,9 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
   const mermaidRef = useRef<MermaidRendererRef | null>(null)
   const excalidrawRef = useRef<ExcalidrawEditorRef | null>(null)
   const drawioRef = useRef<DrawioEditorRef | null>(null)
+  const htmlRef = useRef<HtmlRendererRef | null>(null)
+  const htmlPptRef = useRef<HtmlPptRendererRef | null>(null)
+  const styleVariant = useEditorStore(selectStyleVariant)
 
   // Expose methods via ref
   useImperativeHandle(ref, () => ({
@@ -49,6 +55,12 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
         case 'drawio':
           drawioRef.current?.exportAsSvg()
           break
+        case 'html':
+          htmlRef.current?.exportAsSvg()
+          break
+        case 'html-ppt':
+          htmlPptRef.current?.exportAsSvg()
+          break
       }
     },
     exportAsPng: () => {
@@ -61,6 +73,12 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
           break
         case 'drawio':
           drawioRef.current?.exportAsPng()
+          break
+        case 'html':
+          htmlRef.current?.exportAsPng()
+          break
+        case 'html-ppt':
+          htmlPptRef.current?.exportAsPng()
           break
       }
     },
@@ -75,6 +93,12 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
         case 'drawio':
           drawioRef.current?.exportAsSource()
           break
+        case 'html':
+          htmlRef.current?.exportAsSource()
+          break
+        case 'html-ppt':
+          htmlPptRef.current?.exportAsSource()
+          break
       }
     },
     showSourceCode: () => {
@@ -87,6 +111,12 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
           break
         case 'drawio':
           drawioRef.current?.showSourceCode()
+          break
+        case 'html':
+          htmlRef.current?.showSourceCode()
+          break
+        case 'html-ppt':
+          htmlPptRef.current?.showSourceCode()
           break
       }
     },
@@ -101,6 +131,12 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
         case 'drawio':
           drawioRef.current?.hideSourceCode()
           break
+        case 'html':
+          htmlRef.current?.hideSourceCode()
+          break
+        case 'html-ppt':
+          htmlPptRef.current?.hideSourceCode()
+          break
       }
     },
     toggleSourceCode: () => {
@@ -114,6 +150,12 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
         case 'drawio':
           drawioRef.current?.toggleSourceCode()
           break
+        case 'html':
+          htmlRef.current?.toggleSourceCode()
+          break
+        case 'html-ppt':
+          htmlPptRef.current?.toggleSourceCode()
+          break
       }
     },
     getThumbnail: async () => {
@@ -121,6 +163,14 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
         return drawioRef.current.getThumbnail()
       }
       return ''
+    },
+    openInNewWindow: () => {
+      // Only html engine supports rendered-HTML preview; other engines no-op.
+      if (engineType === 'html') {
+        htmlRef.current?.openInNewWindow()
+      } else if (engineType === 'html-ppt') {
+        htmlPptRef.current?.openInNewWindow()
+      }
     },
   }), [engineType])
 
@@ -193,6 +243,28 @@ export const CanvasArea = forwardRef<CanvasAreaRef, CanvasAreaProps>(function Ca
             ref={drawioRef}
             key={projectKey}
             data={currentContent}
+            onChange={handleContentChange}
+          />
+        )
+      case 'html':
+        return (
+          <HtmlRenderer
+            ref={htmlRef}
+            key={projectKey}
+            html={currentContent}
+            styleVariant={styleVariant ?? 'tech-dark'}
+            title={currentProject?.title || ''}
+            onChange={handleContentChange}
+          />
+        )
+      case 'html-ppt':
+        return (
+          <HtmlPptRenderer
+            ref={htmlPptRef}
+            key={projectKey}
+            html={currentContent}
+            styleVariant={styleVariant ?? 'tokyo-night'}
+            title={currentProject?.title || ''}
             onChange={handleContentChange}
           />
         )

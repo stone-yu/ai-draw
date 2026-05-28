@@ -3,6 +3,7 @@
  */
 
 import type { EngineType } from '@/types'
+import { validateHtmlContent } from './html'
 
 export interface ValidationResult {
   valid: boolean
@@ -125,6 +126,9 @@ export async function validateContent(
       return validateExcalidraw(content)
     case 'drawio':
       return validateDrawio(content)
+    case 'html':
+    case 'html-ppt':
+      return validateHtmlContent(content)
     default:
       return { valid: false, error: `Unknown engine type: ${engineType}` }
   }

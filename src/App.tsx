@@ -36,7 +36,11 @@ function App() {
         if (settings.system) {
           if (settings.system.name) setSystemName(settings.system.name)
           if (settings.system.logoColor) setLogoColor(settings.system.logoColor)
-          if (settings.system.defaultEngine) setDefaultEngine(settings.system.defaultEngine)
+          // Only apply server default engine if the user hasn't picked one
+          // locally — otherwise the per-user choice gets wiped on every refresh.
+          if (settings.system.defaultEngine && !localStorage.getItem('defaultEngine')) {
+            setDefaultEngine(settings.system.defaultEngine)
+          }
           if (settings.system.defaultModelPrompt) setDefaultModelPrompt(settings.system.defaultModelPrompt)
           if (settings.system.notifications) setNotifications(settings.system.notifications)
           if (settings.system.useLocalDrawio !== undefined && settings.system.drawioBaseUrl !== undefined) {

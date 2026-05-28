@@ -99,6 +99,15 @@ export async function generateExcalidrawThumbnail(jsonContent: string): Promise<
 }
 
 /**
+ * v2: HTML engines (html / html-ppt) output full documents that cannot be
+ * rasterized without a hidden iframe + html2canvas. Return empty and let UI
+ * fall back to placeholder. Kept as a function for back-compat with callers.
+ */
+export async function generateHtmlThumbnail(): Promise<string> {
+  return ''
+}
+
+/**
  * Convert SVG string to PNG data URL
  */
 async function svgToDataUrl(svgString: string): Promise<string> {
@@ -179,6 +188,11 @@ export async function generateThumbnail(
       return generateMermaidThumbnail(content)
     case 'excalidraw':
       return generateExcalidrawThumbnail(content)
+    case 'html':
+    case 'html-ppt':
+      // v2: HTML output cannot be turned into a thumbnail without a hidden
+      // iframe + html2canvas. Return empty and let UI fall back to placeholder.
+      return ''
     case 'drawio':
       // Drawio thumbnails are generated via thumbnailGetter in editorStore
       // which uses DrawioEditor's native export for accurate rendering

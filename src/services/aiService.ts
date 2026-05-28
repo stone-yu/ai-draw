@@ -78,20 +78,18 @@ async function prepareSecureAiConfig(): Promise<Record<string, unknown> | undefi
   }
 
   // 情况2: 使用自定义模型，只传当前使用的模型配置
+  // API Key 可选：本地 LLM endpoint（如 Ollama、LM Studio、自建网关等）通常无需鉴权。
+  // 只要用户在 Profile 里选了 provider，就尊重选择，把 modelId/baseUrl 透传过去。
   if (aiConfig.currentProviderId && aiConfig.providers) {
     const currentProvider = aiConfig.providers.find(p => p.id === aiConfig.currentProviderId)
 
-    // 对于 Ollama 供应商，API Key 是可选的
-    const isOllama = currentProvider?.name?.toLowerCase() === 'ollama' || currentProvider?.id?.toLowerCase() === 'ollama'
-
-    if (currentProvider && (currentProvider.apiKey || isOllama)) {
-      // 情况3: 加密 API Key (如果存在)
+    if (currentProvider) {
       const secureConfig = {
         useCustom: true,
         provider: {
           id: currentProvider.id,
           name: currentProvider.name,
-          // 使用无关的字段名并加密 (仅当 API Key 存在时)
+          // 加密 API Key（仅当存在时）
           ...(currentProvider.apiKey && { auth: encryptSensitive(currentProvider.apiKey) }),
           baseUrl: currentProvider.baseUrl,
           modelId: currentProvider.modelId,

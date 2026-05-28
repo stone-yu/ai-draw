@@ -6,6 +6,9 @@ import {Button, Dialog, DialogContent, DialogDescription, DialogTitle, Loading, 
 import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
 import {ModelSelector} from '@/components/ai/ModelSelector'
 import {QUICK_ACTION_ROWS, QUICK_ACTIONS} from '@/constants'
+import {HTML_DIAGRAM_THEMES} from '@/constants'
+import {type PptAudience} from '@/lib/skillThemes'
+import {PptAudienceDialog} from '@/components/layout/PptAudienceDialog'
 import {formatDate} from '@/lib/utils'
 import type {Attachment, DocumentAttachment, ImageAttachment, Project, UrlAttachment} from '@/types'
 import {ProjectRepository} from '@/services/projectRepository'
@@ -90,6 +93,9 @@ export function HomePage() {
 
   const [previewProject, setPreviewProject] = useState<Project | null>(null)
   const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(true)
+  const [quickStartHtmlTheme, setQuickStartHtmlTheme] = useState<string>('tech-dark')
+  const [isHtmlThemeDialogOpen, setIsHtmlThemeDialogOpen] = useState(false)
+  const [isPptDialogOpen, setIsPptDialogOpen] = useState(false)
 
   useEffect(() => {
     // 小屏幕默认收起公告，避免遮挡
@@ -181,19 +187,38 @@ export function HomePage() {
     }
   }
 
-  const handleQuickStart = async () => {
+  const handleQuickStart = () => {
     if (!prompt.trim()) return
-
     if (storageMode === 'cloud' && !isAuthenticated()) {
       navigate('/login')
       return
     }
+    if (defaultEngine === 'html') {
+      setIsHtmlThemeDialogOpen(true)
+      return
+    }
+    if (defaultEngine === 'html-ppt') {
+      setIsPptDialogOpen(true)
+      return
+    }
+    executeQuickStart()
+  }
 
+  const executeQuickStart = async (themeOverride?: string, audienceOverride?: PptAudience) => {
     setIsLoading(true)
     try {
+      const themeForHtml = themeOverride ?? quickStartHtmlTheme
+      const themeForPpt = themeOverride
+      const audienceForPpt = audienceOverride ?? 'engineers'
+      const styleVariant =
+        defaultEngine === 'html' ? themeForHtml :
+        defaultEngine === 'html-ppt' ? themeForPpt :
+        undefined
       const project = await ProjectRepository.create({
         title: `Untitled-${Date.now()}`,
         engineType: defaultEngine,
+        styleVariant,
+        pptAudience: defaultEngine === 'html-ppt' ? audienceForPpt : undefined,
       })
 
       // 转换文件附件为 Attachment 类型
@@ -775,7 +800,11 @@ export function HomePage() {
                             ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
                             : project.engineType === 'drawio'
                               ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'
-                              : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400'
+                              : project.engineType === 'html'
+                                ? 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400'
+                                : project.engineType === 'html-ppt'
+                                  ? 'bg-pink-50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400'
+                                  : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400'
                         }`}>
                           {project.engineType.toUpperCase()}
                         </span>
@@ -797,6 +826,54 @@ export function HomePage() {
       <CreateProjectDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
+      />
+
+      {/* HTML diagram theme picker (only shown when quick-start engine is html) */}
+      <Dialog open={isHtmlThemeDialogOpen} onOpenChange={setIsHtmlThemeDialogOpen}>
+        <DialogContent className="rounded-2xl sm:max-w-md">
+          <div className="space-y-4 py-2">
+            <div>
+              <h3 className="text-base font-semibold text-primary">选择 HTML 主题</h3>
+              <p className="mt-1 text-xs text-muted-foreground">创建后主题不可更改。</p>
+            </div>
+            <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto pr-1">
+              {HTML_DIAGRAM_THEMES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setQuickStartHtmlTheme(t.id)}
+                  className={`rounded-xl border p-3 text-left transition ${quickStartHtmlTheme === t.id ? 'border-primary bg-primary/5' : 'border-border bg-muted/30 hover:border-primary/50'}`}
+                >
+                  <div className="text-sm font-medium">{t.name}</div>
+                  <div className="mt-1 text-[10px] text-muted-foreground line-clamp-2">{t.description}</div>
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setIsHtmlThemeDialogOpen(false)} className="rounded-full">取消</Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setIsHtmlThemeDialogOpen(false)
+                  executeQuickStart(quickStartHtmlTheme)
+                }}
+                className="rounded-full bg-primary text-surface hover:bg-primary/90"
+              >
+                使用「{HTML_DIAGRAM_THEMES.find((t) => t.id === quickStartHtmlTheme)?.name}」继续
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* HTML PPT audience + theme picker */}
+      <PptAudienceDialog
+        open={isPptDialogOpen}
+        onOpenChange={setIsPptDialogOpen}
+        onConfirm={(audience, themeId) => {
+          setIsPptDialogOpen(false)
+          executeQuickStart(themeId, audience)
+        }}
       />
 
       {/* Project Preview Dialog */}

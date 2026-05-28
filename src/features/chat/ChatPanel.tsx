@@ -296,7 +296,10 @@ export function ChatPanel({ onCollapse }: ChatPanelProps) {
 
   const getCodeLanguage = () => {
     const engineType = currentProject?.engineType || 'drawio'
-    return engineType === 'mermaid' ? 'mermaid' : engineType === 'excalidraw' ? 'json' : 'xml'
+    if (engineType === 'mermaid') return 'mermaid'
+    if (engineType === 'excalidraw') return 'json'
+    if (engineType === 'html' || engineType === 'html-ppt') return 'html'
+    return 'xml'
   }
 
   return (

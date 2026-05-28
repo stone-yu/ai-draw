@@ -130,8 +130,10 @@ export function ThoughtBlock({ content, duration, isStreaming }: ThoughtBlockPro
         role="button"
         tabIndex={0}
         onClick={() => setIsCollapsed(!isCollapsed)}
+
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsCollapsed(!isCollapsed) } }}
         className="flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-surface transition-colors cursor-pointer select-none"
+
       >
         <div className="flex items-center gap-2 text-muted-foreground">
           {isStreaming ? (
@@ -184,7 +186,7 @@ export function ThoughtBlock({ content, duration, isStreaming }: ThoughtBlockPro
 
 interface CodeBlockProps {
   code: string
-  language?: 'xml' | 'json' | 'mermaid'
+  language?: 'xml' | 'json' | 'mermaid' | 'html'
   isStreaming?: boolean
   duration?: number
 }
@@ -231,7 +233,7 @@ export function CodeBlock({ code, language = 'xml', isStreaming, duration }: Cod
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
 
-    if (lang === 'xml') {
+    if (lang === 'xml' || lang === 'html') {
       const TAG_OPEN = '___TAG_OPEN___'
       const TAG_CLOSE = '___TAG_CLOSE___'
       const ATTR_OPEN = '___ATTR_OPEN___'
@@ -294,6 +296,7 @@ export function CodeBlock({ code, language = 'xml', isStreaming, duration }: Cod
         onClick={() => setIsCollapsed(!isCollapsed)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsCollapsed(!isCollapsed) } }}
         className="flex w-full items-center justify-between px-3 py-1.5 text-xs bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer select-none"
+
       >
         <div className="flex items-center gap-2 text-foreground">
           <Code2 className="h-3.5 w-3.5" />

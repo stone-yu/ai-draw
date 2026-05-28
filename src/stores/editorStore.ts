@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Project, EngineType } from '@/types'
+import type { PptAudience } from '@/lib/skillThemes'
 
 // 缩略图获取器类型
 type ThumbnailGetter = () => Promise<string>
@@ -84,3 +85,9 @@ export const selectEngineType = (state: EditorState): EngineType | null =>
 
 export const selectIsEmpty = (state: EditorState): boolean =>
   !state.currentContent || state.currentContent.trim() === ''
+
+export const selectStyleVariant = (state: EditorState): string | null =>
+  state.currentProject?.styleVariant ?? null
+
+export const selectPptAudience = (state: EditorState): PptAudience | null =>
+  state.currentProject?.pptAudience ?? null

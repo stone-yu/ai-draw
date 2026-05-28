@@ -7,10 +7,11 @@ import {VersionRepository} from '@/services/versionRepository'
 import {ProjectRepository} from '@/services/projectRepository'
 import {ChatRepository} from '@/services/chatRepository'
 import {authService} from '@/services/authService'
-import {buildEditPrompt, buildInitialPrompt, extractCode, SYSTEM_PROMPTS,} from '@/lib/promptBuilder'
+import {buildEditPrompt, buildInitialPrompt, extractCode, getSystemPrompt,} from '@/lib/promptBuilder'
 import {generateThumbnail} from '@/lib/thumbnail'
 import {aiService} from '@/services/aiService'
 import {validateContent} from '@/lib/validators'
+import {sanitizeHtml} from '@/lib/validators/html'
 import {useToast} from '@/hooks/useToast'
 import {applyDiagramOperations, convertToLegalXml, parseResponse, replaceNodes, stripThinkBlocks, validateAndFixXml} from '@/lib/xmlUtils'
 import type {Attachment, EngineType, PayloadMessage} from '@/types'
@@ -147,7 +148,10 @@ export function useAIGenerate() {
     if (!currentProject) return
 
     const engineType = currentProject.engineType
-    const systemPrompt = SYSTEM_PROMPTS[engineType]
+    const systemPrompt = getSystemPrompt(engineType, {
+      styleVariant: currentProject.styleVariant,
+      pptAudience: currentProject.pptAudience,
+    })
 
     // Add user message to UI (with attachments)
     const userMsgId = addMessage({
@@ -295,6 +299,10 @@ export function useAIGenerate() {
       // Snapshot of what's currently on the canvas (last good frame from throttled streaming).
       // Used as a safety fallback if post-stream validation fails for drawio.
       const streamingFallback = useEditorStore.getState().currentContent
+
+      if (engineType === 'html' || engineType === 'html-ppt') {
+        validatedCode = sanitizeHtml(validatedCode)
+      }
 
       if (engineType === 'drawio') {
         validatedCode = validateAndFixXml(validatedCode)
@@ -499,7 +507,10 @@ export function useAIGenerate() {
     }
 
     const engineType = currentProject.engineType
-    const systemPrompt = SYSTEM_PROMPTS[engineType]
+    const systemPrompt = getSystemPrompt(engineType, {
+      styleVariant: currentProject.styleVariant,
+      pptAudience: currentProject.pptAudience,
+    })
 
     const assistantMsgId =
       assistantMessageId ??
@@ -644,6 +655,11 @@ export function useAIGenerate() {
       }
 
       let validatedCode = finalCode
+
+      if (engineType === 'html' || engineType === 'html-ppt') {
+        validatedCode = sanitizeHtml(validatedCode)
+      }
+
       if (engineType === 'drawio') {
         validatedCode = validateAndFixXml(validatedCode)
         // Final merge to ensure viewport preservation

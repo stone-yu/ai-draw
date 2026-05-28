@@ -1,14 +1,44 @@
-import type {EngineType} from '@/types'
-import {drawioSystemPrompt, excalidrawSystemPrompt, mermaidSystemPrompt} from './prompts'
-import {stripThinkBlocks} from './xmlUtils'
+
+import type { EngineType } from '@/types'
+import type { PptAudience } from '@/lib/skillThemes'
+import {
+  drawioSystemPrompt,
+  excalidrawSystemPrompt,
+  mermaidSystemPrompt,
+  buildHtmlSystemPrompt,
+  buildHtmlPptSystemPrompt,
+} from './prompts'
+
+export interface PromptCtx {
+  /** Diagram theme for `html`, ppt theme for `html-ppt`. */
+  styleVariant?: string
+  /** Only for `html-ppt`. */
+  pptAudience?: PptAudience
+}
+
+type PromptEntry = string | ((ctx: PromptCtx) => string)
+
 
 /**
- * System prompts for different engines
+ * System prompts for different engines. Use getSystemPrompt() to resolve.
  */
-export const SYSTEM_PROMPTS: Record<EngineType, string> = {
+export const SYSTEM_PROMPTS: Record<EngineType, PromptEntry> = {
   mermaid: mermaidSystemPrompt,
   excalidraw: excalidrawSystemPrompt,
   drawio: drawioSystemPrompt,
+  html: (ctx) => buildHtmlSystemPrompt(ctx.styleVariant ?? 'tech-dark'),
+  'html-ppt': (ctx) => buildHtmlPptSystemPrompt(ctx.pptAudience ?? 'engineers', ctx.styleVariant),
+}
+
+/**
+ * Resolve a system prompt for the given engine.
+ */
+export function getSystemPrompt(
+  engineType: EngineType,
+  ctx: PromptCtx = {},
+): string {
+  const entry = SYSTEM_PROMPTS[engineType]
+  return typeof entry === 'function' ? entry(ctx) : entry
 }
 
 /**
@@ -158,10 +188,46 @@ function extractCellIds(xml: string): string[] {
 export function extractCode(response: string, engineType: EngineType): string {
   let code = stripThinkBlocks(response.trim())
 
+  // Reasoning models (DeepSeek R1, Qwen QwQ, etc.) emit a <think>...</think>
+  // block before their real answer. The block often contains pseudo-SVG
+  // examples and natural-language code sketches; if we don't strip it first,
+  // the greedy <svg> regex below grabs from the first <svg-looking thing in
+  // the thinking down to the real </svg>, polluting the result with prose.
+  // Strategy: if a </think> appears anywhere, discard everything up to and
+  // including it. Works whether or not the opening <think> tag is present.
+  const lastThinkClose = code.lastIndexOf('</think>')
+  if (lastThinkClose !== -1) {
+    code = code.slice(lastThinkClose + '</think>'.length).trim()
+  }
+
   // Remove plan if present
   const planMatch = code.match(/<plan>[\s\S]*?<\/plan>/)
   if (planMatch) {
     code = code.replace(planMatch[0], '').trim()
+  }
+
+  if (engineType === 'html') {
+    // Prefer outer <article>; fall back to <!-- type:... --> header + everything to end.
+    const articleMatch = code.match(/<article\b[\s\S]*<\/article\s*>/i)
+    if (articleMatch) return articleMatch[0].trim()
+    const headerIdx = code.indexOf('<!--')
+    if (headerIdx >= 0) return code.slice(headerIdx).trim()
+    const fenced = code.match(/```(?:html|xml|svg)?\n?([\s\S]*?)```/i)
+    if (fenced) return fenced[1].trim()
+    return code
+  }
+
+  if (engineType === 'html-ppt') {
+    // Find <!-- audience:... --> header then everything ending at last </section>.
+    const headerIdx = code.search(/<!--\s*audience:/i)
+    const lastSectionClose = code.toLowerCase().lastIndexOf('</section>')
+    if (lastSectionClose >= 0) {
+      const start = headerIdx >= 0 ? headerIdx : code.search(/<section\b/i)
+      if (start >= 0) return code.slice(start, lastSectionClose + '</section>'.length).trim()
+    }
+    const fenced = code.match(/```(?:html)?\n?([\s\S]*?)```/i)
+    if (fenced) return fenced[1].trim()
+    return code
   }
 
   // For drawio: slice to the <mxfile> or <mxGraphModel> boundary so AI-invented
@@ -186,6 +252,7 @@ export function extractCode(response: string, engineType: EngineType): string {
         }
       }
     }
+
   }
 
   // Remove markdown code blocks if present

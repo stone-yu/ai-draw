@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Code,
   Download,
+  ExternalLink,
   FileText,
   History,
   Image,
@@ -335,7 +336,11 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                     currentProject.engineType === 'excalidraw'
                       ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                      : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                      : currentProject.engineType === 'html'
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
+                        : currentProject.engineType === 'html-ppt'
+                          ? 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300'
+                          : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
                   }`}>
                   {currentProject.engineType.toUpperCase()}
                 </span>
@@ -401,12 +406,18 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
               <DropdownMenuRadioGroup>
                 <DropdownMenuRadioItem className='pl-2' value="svg" onClick={() => canvasRef.current?.exportAsSvg()}>
                   <Code className="mr-2 h-4 w-4" />
-                  {i18nTexts.editorExportSVG[language]}
+                  {currentProject?.engineType === 'html-ppt'
+                    ? (language === 'zh' ? '导出 HTML deck' : 'Export HTML deck')
+                    : currentProject?.engineType === 'html'
+                      ? (language === 'zh' ? '导出 HTML' : 'Export HTML')
+                      : i18nTexts.editorExportSVG[language]}
                 </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem className='pl-2' value="png" onClick={() => canvasRef.current?.exportAsPng()}>
-                  <Image className="mr-2 h-4 w-4" />
-                  {i18nTexts.editorExportPNG[language]}
-                </DropdownMenuRadioItem>
+                {currentProject?.engineType !== 'html-ppt' && (
+                  <DropdownMenuRadioItem className='pl-2' value="png" onClick={() => canvasRef.current?.exportAsPng()}>
+                    <Image className="mr-2 h-4 w-4" />
+                    {i18nTexts.editorExportPNG[language]}
+                  </DropdownMenuRadioItem>
+                )}
                 <DropdownMenuRadioItem className='pl-2' value="source" onClick={() => canvasRef.current?.exportAsSource()}>
                   <FileText className="mr-2 h-4 w-4" />
                   {i18nTexts.editorExportSource[language]}
@@ -430,6 +441,24 @@ export function EditorPage({ mode = 'normal' }: EditorPageProps) {
             </TooltipTrigger>
             <TooltipContent>{i18nTexts.editorSourceCodeTooltip[language]}</TooltipContent>
           </Tooltip>
+
+          {/* Open in new window — html / html-ppt engines */}
+          {(currentProject?.engineType === 'html' || currentProject?.engineType === 'html-ppt') && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => canvasRef.current?.openInNewWindow()}
+                  className="gap-1.5"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="text-xs">新窗口预览</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>在新标签页中打开完整 HTML 预览</TooltipContent>
+            </Tooltip>
+          )}
 
           <div className="mx-1 h-4 w-px bg-border" />
 

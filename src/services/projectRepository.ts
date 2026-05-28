@@ -1,9 +1,10 @@
-import {v4 as uuidv4} from 'uuid'
-import type {EngineType, Project} from '@/types'
-import {authService} from './authService'
-import {useStorageModeStore} from '@/stores/storageModeStore'
-import {useAuthStore} from '@/stores/authStore'
-import {db} from './db'
+import { v4 as uuidv4 } from 'uuid'
+import type { EngineType, Project } from '@/types'
+import { DEFAULT_PPT_THEME, type PptAudience } from '@/lib/skillThemes'
+import { authService } from './authService'
+import { useStorageModeStore } from '@/stores/storageModeStore'
+import { useAuthStore } from '@/stores/authStore'
+import { db } from './db'
 
 const API_BASE = '/api'
 
@@ -18,15 +19,32 @@ export const ProjectRepository = {
   async create(data: {
     title: string
     engineType: EngineType
+    styleVariant?: string
+    pptAudience?: PptAudience
     thumbnail?: string
     groupId?: string
   }): Promise<Project> {
     const mode = useStorageModeStore.getState().mode
     const now = new Date()
+
+    let styleVariant: string | undefined = data.styleVariant
+    let pptAudience: PptAudience | undefined = data.pptAudience
+    if (data.engineType === 'html') {
+      styleVariant = styleVariant ?? 'tech-dark'
+    } else if (data.engineType === 'html-ppt') {
+      pptAudience = pptAudience ?? 'engineers'
+      styleVariant = styleVariant ?? DEFAULT_PPT_THEME[pptAudience]
+    } else {
+      styleVariant = undefined
+      pptAudience = undefined
+    }
+
     const project: Project = {
       id: uuidv4(),
       title: data.title,
       engineType: data.engineType,
+      styleVariant,
+      pptAudience,
       thumbnail: data.thumbnail || '',
       groupId: data.groupId,
       createdAt: now,
@@ -35,43 +53,32 @@ export const ProjectRepository = {
 
     if (mode === 'local') {
       await db.projects.add(project)
-
-      // Log file creation - always use local user ID in local mode
       const localUserId = useStorageModeStore.getState().localUserId
       authService.logFileCreation({
         userId: localUserId,
         userType: 'local',
         fileId: project.id,
-        fileTitle: project.title
+        fileTitle: project.title,
       })
-
       return project
     }
 
     const response = await fetch(`${API_BASE}/projects`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authService.getAuthHeader()
-      },
+      headers: { 'Content-Type': 'application/json', ...authService.getAuthHeader() },
       body: JSON.stringify(project),
     })
+    if (!response.ok) throw new Error('Failed to create project')
 
-    if (!response.ok) {
-      throw new Error('Failed to create project')
-    }
-
-    // Log file creation for cloud mode (only if user is logged in)
     const user = useAuthStore.getState().user
     if (user) {
       authService.logFileCreation({
         userId: user.id,
         userType: 'cloud',
         fileId: project.id,
-        fileTitle: project.title
+        fileTitle: project.title,
       })
     }
-
     return project
   },
 

@@ -11,6 +11,50 @@ interface ChangelogItem {
 
 const CHANGELOG_DATA: ChangelogItem[] = [
   {
+    version: 'v1.11.0',
+    date: '2026-05-21',
+    isLatest: true,
+    content: {
+      zh: `
+#### ✨ 新增能力
+- HTML 引擎升级到 ai-draw-skill v0.3：12 个主题（按 tech / business / minimalist / colorful 分组） × 7 种图类型（由 AI 自动识别）。
+- 新增 **HTML-PPT** 引擎：36 个 PPT 主题 × 6 种受众场景，支持多页演讲稿、键盘 ← / → 翻页、新窗口全屏、按 slide 编辑。
+- 主题 CSS 通过 jsdelivr CDN 分发（\`stone-yu/ai-draw-skill@main\`）。
+
+#### 🛠 兼容性
+- 旧 4 个 html 风格（dark-tech / flat-icon / blueprint / claude-official）通过运行时映射继续可用，旧项目无需迁移。
+      `,
+      en: `
+#### ✨ New Features
+- HTML engine upgraded to ai-draw-skill v0.3: 12 themes (grouped by tech / business / minimalist / colorful) × 7 diagram types (auto-detected by AI).
+- New **HTML-PPT** engine: 36 PPT themes × 6 audience scenarios, supports multi-slide decks, keyboard ← / → navigation, full-screen new window, per-slide editing.
+- Theme CSS distributed via jsdelivr CDN (\`stone-yu/ai-draw-skill@main\`).
+
+#### 🛠 Compatibility
+- The four legacy html styles (dark-tech / flat-icon / blueprint / claude-official) remain available via runtime mapping; existing projects need no migration.
+      `
+    }
+  },
+  {
+    version: 'v1.10.0',
+    date: '2026-05-11',
+    isLatest: false,
+    content: {
+      zh: `
+#### ✨ 新增能力
+- 新增 HTML 引擎：AI 一次性输出 SVG 架构 / 技术图，前端按 4 种风格外壳（Dark Tech / Flat Icon / Blueprint / Claude Official）在沙箱 iframe 中渲染。
+- 项目创建时支持选择 HTML 风格变体，创建后不可更改。
+- HTML 引擎支持 Monaco SVG 源码查看 / 编辑，导出 SVG / PNG / 源码 三种格式。
+- 内置 SVG 净化：脚本、\`on*\` 事件、\`javascript:\` URL 一律清除。
+      `,
+      en: `
+#### ✨ New Features
+- Added HTML engine: AI generates SVG architecture / technical diagrams in one pass; the frontend renders them inside a sandboxed iframe with one of four style shells (Dark Tech / Flat Icon / Blueprint / Claude Official).
+- Style variant is selected at project creation time and cannot be changed afterwards.
+- HTML engine supports Monaco SVG source code viewing / editing, and exports as SVG / PNG / source.
+- Built-in SVG sanitization strips scripts, \`on*\` event handlers, and \`javascript:\` URLs.
+      `
+=======
     version: 'v1.9.6',
     date: '2026-05-11',
     isLatest: true,
@@ -30,7 +74,7 @@ const CHANGELOG_DATA: ChangelogItem[] = [
 - Added per-provider max output tokens setting.
 #### 🛠 Improvements
 - Improved robustness when handling general models with varying output quality.
-    `
+
     }
   },
   {
