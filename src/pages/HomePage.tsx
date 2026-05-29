@@ -911,7 +911,7 @@ export function HomePage() {
                   variant="outline"
                   size="sm"
                   onClick={() => handleOpenInNewWindow(previewProject)}
-                  className="absolute top-3 right-3 z-10 rounded-full h-9 px-4 gap-1.5 shadow-sm bg-white/95 backdrop-blur"
+                  className="absolute top-3 right-14 z-10 rounded-full h-9 px-4 gap-1.5 shadow-sm bg-white/95 backdrop-blur"
                   title={i18nTexts.projectsOpenInNewWindow[language]}
                 >
                   <ExternalLink className="h-4 w-4" />
