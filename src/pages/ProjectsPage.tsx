@@ -831,6 +831,18 @@ export function ProjectsPage() {
         <DialogContent className="max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-none">
           <div className="relative flex flex-col items-center justify-center">
             <div className="relative w-full bg-white rounded-lg overflow-hidden shadow-2xl">
+              {previewProject && (previewProject.engineType === 'html' || previewProject.engineType === 'html-ppt') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleOpenInNewWindow(previewProject)}
+                  className="absolute top-3 right-3 z-10 rounded-full h-9 px-4 gap-1.5 shadow-sm bg-white/95 backdrop-blur"
+                  title={i18nTexts.projectsOpenInNewWindow[language]}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="hidden sm:inline">{i18nTexts.projectsOpenInNewWindow[language]}</span>
+                </Button>
+              )}
               <div className="flex items-center justify-center bg-white p-8 min-h-[400px]">
                 {previewProject?.thumbnail ? (
                   <img
@@ -854,28 +866,16 @@ export function ProjectsPage() {
                     <span>{i18nTexts.projectsUpdateTime[language]}：{previewProject && formatDate(previewProject.updatedAt, true)}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {previewProject && (previewProject.engineType === 'html' || previewProject.engineType === 'html-ppt') && (
-                    <Button
-                      variant="outline"
-                      onClick={() => handleOpenInNewWindow(previewProject)}
-                      className="rounded-full px-6 h-12 text-base gap-2"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      {i18nTexts.projectsOpenInNewWindow[language]}
-                    </Button>
-                  )}
-                  <Button
-                    onClick={() => {
-                      if (previewProject) {
-                        navigate(`/editor/${previewProject.id}`)
-                      }
-                    }}
-                    className="rounded-full px-8 h-12 text-base"
-                  >
-                    {i18nTexts.projectsEnterEdit[language]}
-                  </Button>
-                </div>
+                <Button
+                  onClick={() => {
+                    if (previewProject) {
+                      navigate(`/editor/${previewProject.id}`)
+                    }
+                  }}
+                  className="rounded-full px-8 h-12 text-base shrink-0"
+                >
+                  {i18nTexts.projectsEnterEdit[language]}
+                </Button>
               </div>
             </div>
           </div>
