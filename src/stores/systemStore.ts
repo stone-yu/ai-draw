@@ -143,6 +143,7 @@ export interface I18nTexts {
   projectsUpdatedAt: { zh: string; en: string }
   projectsPreviewTitle: { zh: string; en: string }
   projectsEnterEdit: { zh: string; en: string }
+  projectsOpenInNewWindow: { zh: string; en: string }
   projectsNoPreview: { zh: string; en: string }
   projectsCreateTime: { zh: string; en: string }
   projectsUpdateTime: { zh: string; en: string }
@@ -441,6 +442,7 @@ export const useSystemStore = create<SystemState>((set) => ({
     projectsUpdatedAt: { zh: '更新于', en: 'Updated' },
     projectsPreviewTitle: { zh: '暂无预览图', en: 'No Preview' },
     projectsEnterEdit: { zh: '进入编辑', en: 'Enter Edit' },
+    projectsOpenInNewWindow: { zh: '新窗口打开', en: 'Open in New Window' },
     projectsNoPreview: { zh: '暂无预览图', en: 'No Preview' },
     projectsCreateTime: { zh: '创建时间', en: 'Created Time' },
     projectsUpdateTime: { zh: '更新时间', en: 'Updated Time' },

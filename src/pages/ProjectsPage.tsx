@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Edit,
+  ExternalLink,
   Folder,
   FolderOpen,
   MoreVertical,
@@ -34,6 +35,10 @@ import {formatDate} from '@/lib/utils'
 import type {Group, Project} from '@/types'
 import {ProjectRepository} from '@/services/projectRepository'
 import {GroupRepository} from '@/services/groupRepository'
+import {VersionRepository} from '@/services/versionRepository'
+import {buildHtmlSrcDoc} from '@/lib/htmlShells'
+import {buildPptSrcDoc} from '@/lib/htmlPpt/srcdocBuilder'
+import {sanitizeHtml} from '@/lib/validators/html'
 import {useSystemStore} from '@/stores/systemStore'
 
 export function ProjectsPage() {
@@ -171,6 +176,25 @@ export function ProjectsPage() {
   const openRenameDialog = (project: Project) => {
     setRenameTarget(project)
     setNewTitle(project.title)
+  }
+
+  const handleOpenInNewWindow = async (project: Project) => {
+    try {
+      const latest = await VersionRepository.getLatest(project.id)
+      const rawHtml = latest?.content ?? ''
+      const sanitized = sanitizeHtml(rawHtml)
+      const themeId = project.styleVariant ?? ''
+      const srcDoc = project.engineType === 'html-ppt'
+        ? buildPptSrcDoc({ themeId, body: sanitized, title: project.title, activeIndex: 0, includeNavScript: true })
+        : buildHtmlSrcDoc(themeId, sanitized, project.title)
+      const blob = new Blob([srcDoc], { type: 'text/html;charset=utf-8' })
+      const href = URL.createObjectURL(blob)
+      const win = window.open(href, '_blank')
+      if (!win) console.warn('[ProjectsPage] Popup blocked; preview URL:', href)
+      setTimeout(() => URL.revokeObjectURL(href), 60_000)
+    } catch (error) {
+      console.error('Failed to open project in new window:', error)
+    }
   }
 
   // --- Group Actions ---
@@ -830,16 +854,28 @@ export function ProjectsPage() {
                     <span>{i18nTexts.projectsUpdateTime[language]}：{previewProject && formatDate(previewProject.updatedAt, true)}</span>
                   </div>
                 </div>
-                <Button
-                  onClick={() => {
-                    if (previewProject) {
-                      navigate(`/editor/${previewProject.id}`)
-                    }
-                  }}
-                  className="rounded-full px-8 h-12 text-base shrink-0"
-                >
-                  {i18nTexts.projectsEnterEdit[language]}
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {previewProject && (previewProject.engineType === 'html' || previewProject.engineType === 'html-ppt') && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleOpenInNewWindow(previewProject)}
+                      className="rounded-full px-6 h-12 text-base gap-2"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      {i18nTexts.projectsOpenInNewWindow[language]}
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => {
+                      if (previewProject) {
+                        navigate(`/editor/${previewProject.id}`)
+                      }
+                    }}
+                    className="rounded-full px-8 h-12 text-base"
+                  >
+                    {i18nTexts.projectsEnterEdit[language]}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
