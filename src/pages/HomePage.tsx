@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from 'react'
 import {useNavigate} from 'react-router-dom'
-import {Bot, Edit, Info, Link, MoveRight, Paperclip, Send, X} from 'lucide-react'
+import {Bot, Edit, ExternalLink, Info, Link, MoveRight, Paperclip, Send, X} from 'lucide-react'
 import {v4 as uuidv4} from 'uuid'
 import {Button, Dialog, DialogContent, DialogDescription, DialogTitle, Loading, Logo} from '@/components/ui'
 import {AppHeader, AppSidebar, CreateProjectDialog} from '@/components/layout'
@@ -12,6 +12,10 @@ import {PptAudienceDialog} from '@/components/layout/PptAudienceDialog'
 import {formatDate} from '@/lib/utils'
 import type {Attachment, DocumentAttachment, ImageAttachment, Project, UrlAttachment} from '@/types'
 import {ProjectRepository} from '@/services/projectRepository'
+import {VersionRepository} from '@/services/versionRepository'
+import {buildHtmlSrcDoc} from '@/lib/htmlShells'
+import {buildPptSrcDoc} from '@/lib/htmlPpt/srcdocBuilder'
+import {sanitizeHtml} from '@/lib/validators/html'
 import {useChatStore} from '@/stores/chatStore'
 import {useAuthStore} from '@/stores/authStore'
 import {useSystemStore} from '@/stores/systemStore'
@@ -202,6 +206,25 @@ export function HomePage() {
       return
     }
     executeQuickStart()
+  }
+
+  const handleOpenInNewWindow = async (project: Project) => {
+    try {
+      const latest = await VersionRepository.getLatest(project.id)
+      const rawHtml = latest?.content ?? ''
+      const sanitized = sanitizeHtml(rawHtml)
+      const themeId = project.styleVariant ?? ''
+      const srcDoc = project.engineType === 'html-ppt'
+        ? buildPptSrcDoc({ themeId, body: sanitized, title: project.title, activeIndex: 0, includeNavScript: true })
+        : buildHtmlSrcDoc(themeId, sanitized, project.title)
+      const blob = new Blob([srcDoc], { type: 'text/html;charset=utf-8' })
+      const href = URL.createObjectURL(blob)
+      const win = window.open(href, '_blank')
+      if (!win) console.warn('[HomePage] Popup blocked; preview URL:', href)
+      setTimeout(() => URL.revokeObjectURL(href), 60_000)
+    } catch (error) {
+      console.error('Failed to open project in new window:', error)
+    }
   }
 
   const executeQuickStart = async (themeOverride?: string, audienceOverride?: PptAudience) => {
@@ -883,6 +906,18 @@ export function HomePage() {
           <DialogDescription className="sr-only">项目预览，包含缩略图和元信息</DialogDescription>
           <div className="relative flex flex-col items-center justify-center">
             <div className="relative w-full bg-white rounded-lg overflow-hidden shadow-2xl">
+              {previewProject && (previewProject.engineType === 'html' || previewProject.engineType === 'html-ppt') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleOpenInNewWindow(previewProject)}
+                  className="absolute top-3 right-14 z-10 rounded-full h-9 px-4 gap-1.5 shadow-sm bg-white/95 backdrop-blur"
+                  title={i18nTexts.projectsOpenInNewWindow[language]}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="hidden sm:inline">{i18nTexts.projectsOpenInNewWindow[language]}</span>
+                </Button>
+              )}
               <div className="flex items-center justify-center bg-white p-8 min-h-[400px]">
                 {previewProject?.thumbnail ? (
                   <img
